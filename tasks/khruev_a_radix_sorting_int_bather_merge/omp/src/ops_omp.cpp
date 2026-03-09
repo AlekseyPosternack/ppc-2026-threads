@@ -106,7 +106,7 @@ bool KhruevARadixSortingIntBatherMergeOMP::RunImpl() {
   std::vector<int> left(data.begin(), data.begin() + half_dist);
   std::vector<int> right(data.begin() + half_dist, data.end());
 
-#pragma omp parallel sections
+#pragma omp parallel sections default(none) shared(left, right, data, half_dist)
   {
 #pragma omp section
     {
