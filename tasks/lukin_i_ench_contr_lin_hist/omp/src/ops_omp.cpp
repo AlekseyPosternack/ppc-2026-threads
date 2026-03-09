@@ -22,24 +22,31 @@ bool LukinITestTaskOMP::PreProcessingImpl() {
 }
 
 bool LukinITestTaskOMP::RunImpl() {
-  auto min_it = std::ranges::min_element(GetInput().begin(), GetInput().end());
-  auto max_it = std::ranges::max_element(GetInput().begin(), GetInput().end());
+  const auto &input = GetInput();
+  auto &output = GetOutput();
 
-  unsigned char min = *min_it;
-  unsigned char max = *max_it;
+  unsigned char min = 255;
+  unsigned char max = 0;
+
+  const int size = static_cast<int>(input.size());
+
+#pragma omp parallel for reduction(min : min) reduction(max : max)  //(max : max) - оператор, потом указание переменной
+  for (int i = 0; i < size; i++) {
+    min = std::min(min, input[i]);
+    max = std::max(max, input[i]);
+  }
 
   if (max == min)  // Однотонное изображение
   {
-    GetOutput() = GetInput();
+    output = input;
     return true;
   }
 
   float scale = 255.0F / static_cast<float>(max - min);
 
-  int size = static_cast<int>(GetInput().size());
-
+#pragma omp parallel for
   for (int i = 0; i < size; i++) {  // Линейное растяжение
-    GetOutput()[i] = static_cast<unsigned char>(static_cast<float>(GetInput()[i] - min) * scale);
+    output[i] = static_cast<unsigned char>(static_cast<float>(input[i] - min) * scale);
   }
 
   return true;
