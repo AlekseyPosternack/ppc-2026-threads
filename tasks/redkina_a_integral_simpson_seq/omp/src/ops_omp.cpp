@@ -13,32 +13,11 @@ namespace redkina_a_integral_simpson_seq {
 
 namespace {
 
-// Вес Симпсона для индекса i при разбиении n
-inline double GetWeight(int i, int n) {
-  if (i == 0 || i == n) {
-    return 1.0;
+inline int GetWeight(int idx, int n) {
+  if (idx == 0 || idx == n) {
+    return 1;
   }
-  return (i % 2 == 1) ? 4.0 : 2.0;
-}
-
-// Рекурсивное вычисление суммы для размерностей, начиная с dim_start
-double RecursiveSum(int dim_start, int dim_end, const double *a, const double *h, const int *n,
-                    const std::vector<double> &point_prefix,
-                    const std::function<double(const std::vector<double> &)> &func) {
-  if (dim_start == dim_end) {
-    // Базовый случай: все координаты определены
-    return func(point_prefix);
-  }
-  double sum = 0.0;
-  int current_dim = dim_start;
-  for (int idx = 0; idx <= n[current_dim]; ++idx) {
-    double x = a[current_dim] + idx * h[current_dim];
-    double w = GetWeight(idx, n[current_dim]);
-    std::vector<double> point = point_prefix;
-    point.push_back(x);
-    sum += w * RecursiveSum(dim_start + 1, dim_end, a, h, n, point, func);
-  }
-  return sum;
+  return (idx % 2 == 1) ? 4 : 2;
 }
 
 }  // namespace
@@ -79,7 +58,7 @@ bool RedkinaAIntegralSimpsonOMP::PreProcessingImpl() {
 bool RedkinaAIntegralSimpsonOMP::RunImpl() {
   const size_t dim = a_.size();
 
-  // Локальные копии для использования в параллельном регионе
+  // Локальные копии для параллельной области
   std::vector<double> a = a_;
   std::vector<double> b = b_;
   std::vector<int> n = n_;
@@ -88,38 +67,63 @@ bool RedkinaAIntegralSimpsonOMP::RunImpl() {
     h[i] = (b[i] - a[i]) / static_cast<double>(n[i]);
   }
 
-  // Произведение шагов
+  // Множители для перевода линейного индекса в многомерный
+  std::vector<size_t> strides(dim);
+  strides[dim - 1] = 1;
+  for (int i = static_cast<int>(dim) - 2; i >= 0; --i) {
+    strides[i] = strides[i + 1] * static_cast<size_t>(n[i + 1] + 1);
+  }
+
+  const size_t total_nodes = [&] {
+    size_t prod = 1;
+    for (int ni : n) {
+      prod *= static_cast<size_t>(ni + 1);
+    }
+    return prod;
+  }();
+
+  // Сырые указатели для доступа внутри цикла
+  const double *a_data = a.data();
+  const double *h_data = h.data();
+  const int *n_data = n.data();
+  const size_t *strides_data = strides.data();
+
+  double sum = 0.0;
+
+#pragma omp parallel
+  {
+    std::vector<int> indices(dim);
+    std::vector<double> point(dim);
+
+#pragma omp for reduction(+ : sum)
+    for (size_t linear_idx = 0; linear_idx < total_nodes; ++linear_idx) {
+      size_t remainder = linear_idx;
+      for (size_t i = 0; i < dim; ++i) {
+        indices[i] = static_cast<int>(remainder / strides_data[i]);
+        remainder %= strides_data[i];
+      }
+
+      double w_prod = 1.0;
+      for (size_t i = 0; i < dim; ++i) {
+        w_prod *= static_cast<double>(GetWeight(indices[i], n_data[i]));
+        point[i] = a_data[i] + static_cast<double>(indices[i]) * h_data[i];
+      }
+
+      sum += w_prod * func_(point);
+    }
+  }
+
   double h_prod = 1.0;
   for (size_t i = 0; i < dim; ++i) {
     h_prod *= h[i];
   }
 
-  // Сумма по всем узлам
-  double total_sum = 0.0;
-
-  if (dim == 0) {
-    result_ = 0.0;
-    return true;
-  }
-
-  // Параллельный цикл по первому измерению (как у Овсянникова)
-#pragma omp parallel for reduction(+ : total_sum) schedule(static)
-  for (int i0 = 0; i0 <= n[0]; ++i0) {
-    double x0 = a[0] + i0 * h[0];
-    double w0 = GetWeight(i0, n[0]);
-    std::vector<double> point(1, x0);
-    // Рекурсивный обход остальных измерений
-    double inner_sum = RecursiveSum(1, static_cast<int>(dim), a.data(), h.data(), n.data(), point, func_);
-    total_sum += w0 * inner_sum;
-  }
-
-  // Знаменатель 3^dim
   double denominator = 1.0;
   for (size_t i = 0; i < dim; ++i) {
     denominator *= 3.0;
   }
 
-  result_ = (h_prod / denominator) * total_sum;
+  result_ = (h_prod / denominator) * sum;
   return true;
 }
 
