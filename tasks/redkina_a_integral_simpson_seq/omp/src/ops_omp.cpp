@@ -81,6 +81,13 @@ bool RedkinaAIntegralSimpsonOMP::PreProcessingImpl() {
 }
 
 bool RedkinaAIntegralSimpsonOMP::RunImpl() {
+  // Однократная инициализация OpenMP (вызывается при первом входе)
+  static bool omp_init = []() {
+    omp_get_max_threads();  // форсирует создание внутренних структур
+    return true;
+  }();
+  (void)omp_init;  // подавление предупреждения о неиспользуемой переменной
+
   size_t dim = a_.size();
 
   std::vector<double> h(dim);
@@ -108,7 +115,7 @@ bool RedkinaAIntegralSimpsonOMP::RunImpl() {
 
 #pragma omp parallel default(none) shared(a_ref, h_ref, n_ref, func_ref, dim_local, total_sum)
   {
-    // Один вектор на поток, будет автоматически уничтожен при выходе из области
+    // Один вектор на поток – автоматически уничтожится при выходе из области
     std::vector<double> point(dim_local);
 
 #pragma omp for reduction(+ : total_sum)
