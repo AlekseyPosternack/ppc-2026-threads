@@ -9,6 +9,8 @@
 #  include <omp.h>
 #endif
 
+#include "urin_o_graham_passage/common/include/common.hpp"
+
 namespace urin_o_graham_passage {
 
 UrinOGrahamPassageOMP::UrinOGrahamPassageOMP(const InType &in) {
@@ -55,7 +57,7 @@ Point UrinOGrahamPassageOMP::FindLowestPoint(const InType &points) {
 Point UrinOGrahamPassageOMP::FindLowestPointParallel(const InType &points) {
   int lowest_index = 0;
 
-#pragma omp parallel for
+#pragma omp parallel for default(none) shared(points, lowest_index)
   for (int i = 1; i < static_cast<int>(points.size()); ++i) {
 #pragma omp critical
     {
@@ -81,7 +83,7 @@ double UrinOGrahamPassageOMP::PolarAngle(const Point &base, const Point &p) {
 }
 
 int UrinOGrahamPassageOMP::Orientation(const Point &p, const Point &q, const Point &r) {
-  double val = (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  double val = ((q.x - p.x) * (r.y - p.y)) - ((q.y - p.y) * (r.x - p.x));
 
   if (std::abs(val) < 1e-10) {
     return 0;
@@ -92,7 +94,7 @@ int UrinOGrahamPassageOMP::Orientation(const Point &p, const Point &q, const Poi
 double UrinOGrahamPassageOMP::DistanceSquared(const Point &p1, const Point &p2) {
   double dx = p2.x - p1.x;
   double dy = p2.y - p1.y;
-  return dx * dx + dy * dy;
+  return (dx * dx) + (dy * dy);
 }
 
 std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPoints(const InType &points, const Point &p0) {
@@ -122,15 +124,15 @@ std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPointsParallel(const InTyp
   std::vector<Point> other_points;
   other_points.reserve(points.size() - 1);
 
-#pragma omp parallel
+#pragma omp parallel default(none) shared(points, p0, other_points)
   {
     std::vector<Point> local_points;
     local_points.reserve(points.size() / omp_get_num_threads() + 1);
 
 #pragma omp for nowait
-    for (int i = 0; i < static_cast<int>(points.size()); ++i) {
-      if (points[i] != p0) {
-        local_points.push_back(points[i]);
+    for (const auto &point : points) {
+      if (point != p0) {
+        local_points.push_back(point);
       }
     }
 
@@ -156,7 +158,7 @@ std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPointsParallel(const InTyp
 bool UrinOGrahamPassageOMP::AreAllCollinear(const Point &p0, const std::vector<Point> &points) {
   bool all_collinear = true;
 
-#pragma omp parallel for shared(points)
+#pragma omp parallel for default(none) shared(points, p0, all_collinear)
   for (int i = 1; i < static_cast<int>(points.size()); ++i) {
     if (Orientation(p0, points[0], points[i]) != 0) {
 #pragma omp atomic write
