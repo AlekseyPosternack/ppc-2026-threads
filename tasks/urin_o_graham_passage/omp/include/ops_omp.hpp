@@ -27,12 +27,10 @@ class UrinOGrahamPassageOMP : public BaseTask {
   bool PostProcessingImpl() override;
 
  private:
-  // Статические вспомогательные функции
   [[nodiscard]] static std::vector<Point> PrepareOtherPoints(const InType &points, const Point &p0);
   [[nodiscard]] static bool AreAllCollinear(const Point &p0, const std::vector<Point> &points);
   [[nodiscard]] static std::vector<Point> BuildConvexHull(const Point &p0, const std::vector<Point> &points);
 
-  // Функции с распараллеливанием
   [[nodiscard]] static Point FindLowestPointParallel(const InType &points);
   [[nodiscard]] static std::vector<Point> PrepareOtherPointsParallel(const InType &points, const Point &p0);
 };

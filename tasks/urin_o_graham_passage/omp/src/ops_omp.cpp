@@ -92,7 +92,7 @@ int UrinOGrahamPassageOMP::Orientation(const Point &p, const Point &q, const Poi
 double UrinOGrahamPassageOMP::DistanceSquared(const Point &p1, const Point &p2) {
   double dx = p2.x - p1.x;
   double dy = p2.y - p1.y;
-  return (dx * dx) + (dy * dy);
+  return dx * dx + dy * dy;
 }
 
 std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPoints(const InType &points, const Point &p0) {
@@ -122,7 +122,6 @@ std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPointsParallel(const InTyp
   std::vector<Point> other_points;
   other_points.reserve(points.size() - 1);
 
-// Собираем точки, отличные от p0
 #pragma omp parallel
   {
     std::vector<Point> local_points;
@@ -141,7 +140,6 @@ std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPointsParallel(const InTyp
     }
   }
 
-  // Сортировка остается последовательной
   std::sort(other_points.begin(), other_points.end(), [&p0](const Point &a, const Point &b) {
     double angle_a = PolarAngle(p0, a);
     double angle_b = PolarAngle(p0, b);
@@ -156,7 +154,6 @@ std::vector<Point> UrinOGrahamPassageOMP::PrepareOtherPointsParallel(const InTyp
 }
 
 bool UrinOGrahamPassageOMP::AreAllCollinear(const Point &p0, const std::vector<Point> &points) {
-  // Используем атомарные операции вместо reduction для bool
   bool all_collinear = true;
 
 #pragma omp parallel for shared(points)
@@ -176,7 +173,6 @@ std::vector<Point> UrinOGrahamPassageOMP::BuildConvexHull(const Point &p0, const
   hull.push_back(p0);
   hull.push_back(points[0]);
 
-  // Построение оболочки - сугубо последовательный алгоритм
   for (size_t i = 1; i < points.size(); ++i) {
     while (hull.size() >= 2) {
       const Point &p = hull[hull.size() - 2];
@@ -200,22 +196,18 @@ bool UrinOGrahamPassageOMP::RunImpl() {
     return false;
   }
 
-  // Используем параллельную версию поиска точки
   Point p0 = FindLowestPointParallel(points);
 
-  // Используем параллельную версию подготовки точек
   std::vector<Point> other_points = PrepareOtherPointsParallel(points, p0);
   if (other_points.empty()) {
     return false;
   }
 
-  // Параллельная проверка на коллинеарность
   if (AreAllCollinear(p0, other_points)) {
     GetOutput() = {p0, other_points.back()};
     return true;
   }
 
-  // Построение оболочки - последовательно
   GetOutput() = BuildConvexHull(p0, other_points);
   return true;
 }
