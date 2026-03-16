@@ -14,6 +14,7 @@
 #include "util/include/util.hpp"
 
 namespace morozova_s_strassen_multiplication {
+
 template <typename TaskType>
 class MorozovaSStrassenMultiplicationFuncTests : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
@@ -216,62 +217,45 @@ class MorozovaSStrassenMultiplicationFuncTests : public ppc::util::BaseRunFuncTe
   int test_number_{0};
 };
 
-<<<<<<< HEAD
 }  // namespace morozova_s_strassen_multiplication
 
 using namespace morozova_s_strassen_multiplication;
 
-=======
-namespace {
->>>>>>> 6f175127bd73e2780c47337d542be12572cdcc60
 using MorozovaSStrassenMultiplicationSEQFuncTests =
     MorozovaSStrassenMultiplicationFuncTests<MorozovaSStrassenMultiplicationSEQ>;
 
 TEST_P(MorozovaSStrassenMultiplicationSEQFuncTests, MatrixMultiplication) {
-  TEST_P(MorozovaSStrassenMultiplicationFuncTests, MatrixMultiplication) {
-    ExecuteTest(GetParam());
-  }
+  ExecuteTest(GetParam());
+}
 
-  const std::array<TestType, 7> kTestParam = {std::make_tuple(1, "2x2"),         std::make_tuple(2, "4x4"),
-                                              std::make_tuple(3, "8x8"),         std::make_tuple(4, "16x16"),
-                                              std::make_tuple(5, "32x32"),       std::make_tuple(6, "empty"),
-                                              std::make_tuple(7, "invalid_size")};
+const std::array<TestType, 7> kTestParam = {std::make_tuple(1, "2x2"),         std::make_tuple(2, "4x4"),
+                                            std::make_tuple(3, "8x8"),         std::make_tuple(4, "16x16"),
+                                            std::make_tuple(5, "32x32"),       std::make_tuple(6, "empty"),
+                                            std::make_tuple(7, "invalid_size")};
 
-  const auto kTestTasksSEQ = ppc::util::AddFuncTask<MorozovaSStrassenMultiplicationSEQ, InType>(
-      kTestParam, PPC_SETTINGS_morozova_s_strassen_multiplication);
-  const auto kGtestValuesSEQ = ppc::util::ExpandToValues(kTestTasksSEQ);
-  const auto kPerfTestNameSEQ =
-      MorozovaSStrassenMultiplicationSEQFuncTests::PrintFuncTestName<MorozovaSStrassenMultiplicationSEQFuncTests>;
+const auto kTestTasksSEQ = ppc::util::AddFuncTask<MorozovaSStrassenMultiplicationSEQ, InType>(
+    kTestParam, PPC_SETTINGS_morozova_s_strassen_multiplication);
 
-  INSTANTIATE_TEST_SUITE_P(StrassenMultiplicationSEQTests, MorozovaSStrassenMultiplicationSEQFuncTests, kGtestValuesSEQ,
-                           kPerfTestNameSEQ);
+const auto kGtestValuesSEQ = ppc::util::ExpandToValues(kTestTasksSEQ);
+const auto kPerfTestNameSEQ =
+    MorozovaSStrassenMultiplicationSEQFuncTests::PrintFuncTestName<MorozovaSStrassenMultiplicationSEQFuncTests>;
 
-  using MorozovaSStrassenMultiplicationOMPFuncTests =
-      MorozovaSStrassenMultiplicationFuncTests<MorozovaSStrassenMultiplicationOMP>;
+INSTANTIATE_TEST_SUITE_P(StrassenMultiplicationSEQTests, MorozovaSStrassenMultiplicationSEQFuncTests, kGtestValuesSEQ,
+                         kPerfTestNameSEQ);
 
-  TEST_P(MorozovaSStrassenMultiplicationOMPFuncTests, MatrixMultiplication) {
-    ExecuteTest(GetParam());
-  }
+using MorozovaSStrassenMultiplicationOMPFuncTests =
+    MorozovaSStrassenMultiplicationFuncTests<MorozovaSStrassenMultiplicationOMP>;
 
-  const auto kTestTasksOMP = ppc::util::AddFuncTask<MorozovaSStrassenMultiplicationOMP, InType>(
-      kTestParam, PPC_SETTINGS_morozova_s_strassen_multiplication);
+TEST_P(MorozovaSStrassenMultiplicationOMPFuncTests, MatrixMultiplication) {
+  ExecuteTest(GetParam());
+}
 
-  const auto kGtestValuesOMP = ppc::util::ExpandToValues(kTestTasksOMP);
-  const auto kPerfTestNameOMP =
-      MorozovaSStrassenMultiplicationOMPFuncTests::PrintFuncTestName<MorozovaSStrassenMultiplicationOMPFuncTests>;
+const auto kTestTasksOMP = ppc::util::AddFuncTask<MorozovaSStrassenMultiplicationOMP, InType>(
+    kTestParam, PPC_SETTINGS_morozova_s_strassen_multiplication);
 
-  INSTANTIATE_TEST_SUITE_P(StrassenMultiplicationOMPTests, MorozovaSStrassenMultiplicationOMPFuncTests, kGtestValuesOMP,
-                           kPerfTestNameOMP);
-<<<<<<< HEAD
-=======
-  const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksSEQ);
-  const auto kPerfTestName =
-      MorozovaSStrassenMultiplicationFuncTests::PrintFuncTestName<MorozovaSStrassenMultiplicationFuncTests>;
+const auto kGtestValuesOMP = ppc::util::ExpandToValues(kTestTasksOMP);
+const auto kPerfTestNameOMP =
+    MorozovaSStrassenMultiplicationOMPFuncTests::PrintFuncTestName<MorozovaSStrassenMultiplicationOMPFuncTests>;
 
-  INSTANTIATE_TEST_SUITE_P(StrassenMultiplicationTests, MorozovaSStrassenMultiplicationFuncTests, kGtestValues,
-                           kPerfTestName);
-
-}  // namespace
-
-}  // namespace morozova_s_strassen_multiplication
->>>>>>> 6f175127bd73e2780c47337d542be12572cdcc60
+INSTANTIATE_TEST_SUITE_P(StrassenMultiplicationOMPTests, MorozovaSStrassenMultiplicationOMPFuncTests, kGtestValuesOMP,
+                         kPerfTestNameOMP);
