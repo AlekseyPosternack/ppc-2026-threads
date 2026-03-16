@@ -68,7 +68,7 @@ bool ShkenevIConstrHullOMP::RunImpl() {
   auto &convex_hulls = work_.convex_hulls;
 
 #pragma omp parallel for default(none) shared(components, convex_hulls) num_threads(ppc::util::GetNumThreads())
-  for (int i = 0; i < static_cast<int>(components.size()); ++i) {
+  for (int i = 0; std::cmp_less(i, components.size()); ++i) {
     const auto &comp = components[i];
     if (comp.empty()) {
       continue;
@@ -96,8 +96,9 @@ void ShkenevIConstrHullOMP::ThresholdImage() {
   auto &pixels = work_.pixels;
 
 #pragma omp parallel for default(none) shared(pixels) num_threads(ppc::util::GetNumThreads())
-  for (size_t i = 0; i < pixels.size(); ++i) {  // Используем size_t вместо int
-    pixels[i] = IsForeground(pixels[i]) ? static_cast<uint8_t>(255) : static_cast<uint8_t>(0);
+  for (std::size_t i = 0; i < pixels.size(); ++i) {
+    auto &pixel = pixels[i];
+    pixel = IsForeground(pixel) ? static_cast<uint8_t>(255) : static_cast<uint8_t>(0);
   }
 }
 
