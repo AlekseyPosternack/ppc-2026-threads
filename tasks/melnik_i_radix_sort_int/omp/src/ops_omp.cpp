@@ -20,14 +20,18 @@ constexpr int kBitsPerPass = 8;
 constexpr std::size_t kBuckets = 1U << kBitsPerPass;
 
 std::vector<MelnikIRadixSortIntOMP::Range> BuildInitialRanges(std::size_t data_size, int num_ranges) {
-  std::vector<MelnikIRadixSortIntOMP::Range> ranges(static_cast<std::size_t>(num_ranges));
+  std::vector<MelnikIRadixSortIntOMP::Range> ranges;
+  ranges.reserve(static_cast<std::size_t>(num_ranges));
   const std::size_t chunk_size =
       (data_size + static_cast<std::size_t>(num_ranges) - 1U) / static_cast<std::size_t>(num_ranges);
 
   for (int range_index = 0; range_index < num_ranges; ++range_index) {
     const std::size_t begin = static_cast<std::size_t>(range_index) * chunk_size;
+    if (begin >= data_size) {
+      break;
+    }
     const std::size_t end = std::min(begin + chunk_size, data_size);
-    ranges[static_cast<std::size_t>(range_index)] = MelnikIRadixSortIntOMP::Range{begin, end};
+    ranges.push_back(MelnikIRadixSortIntOMP::Range{begin, end});
   }
 
   return ranges;
@@ -67,9 +71,10 @@ bool MelnikIRadixSortIntOMP::RunImpl() {
   }
 
   const std::vector<Range> ranges = BuildInitialRanges(data_size, num_threads);
+  const int active_ranges = static_cast<int>(ranges.size());
 
 #pragma omp parallel for schedule(static) num_threads(num_threads)
-  for (int range_index = 0; range_index < num_threads; ++range_index) {
+  for (int range_index = 0; range_index < active_ranges; ++range_index) {
     const Range range = ranges[static_cast<std::size_t>(range_index)];
     if (range.begin < range.end) {
       RadixSortRange(GetOutput(), buffer, range.begin, range.end);
