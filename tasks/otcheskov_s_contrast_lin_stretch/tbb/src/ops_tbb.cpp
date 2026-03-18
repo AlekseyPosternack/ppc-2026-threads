@@ -60,7 +60,8 @@ bool OtcheskovSContrastLinStretchTBB::PostProcessingImpl() {
   return true;
 }
 
-MinMax ComputeMinMax(const InType &input, tbb::task_arena &arena) {
+OtcheskovSContrastLinStretchTBB::MinMax OtcheskovSContrastLinStretchTBB::ComputeMinMax(const InType &input,
+                                                                                       tbb::task_arena &arena) {
   MinMax result{};
   arena.execute([&] {
     result = tbb::parallel_reduce(tbb::blocked_range<size_t>(0, input.size()), MinMax{},
@@ -77,7 +78,7 @@ MinMax ComputeMinMax(const InType &input, tbb::task_arena &arena) {
   return result;
 }
 
-void CopyInput(const std::vector<uint8_t> &input, std::vector<uint8_t> &output, tbb::task_arena &arena) {
+void OtcheskovSContrastLinStretchTBB::CopyInput(const InType &input, OutType &output, tbb::task_arena &arena) {
   arena.execute([&] {
     tbb::parallel_for(tbb::blocked_range<size_t>(0, input.size()), [&](const tbb::blocked_range<size_t> &r) {
       for (size_t i = r.begin(); i != r.end(); ++i) {
@@ -87,8 +88,8 @@ void CopyInput(const std::vector<uint8_t> &input, std::vector<uint8_t> &output, 
   });
 }
 
-void LinearStretch(const std::vector<uint8_t> &input, std::vector<uint8_t> &output, int min_i, int range,
-                   tbb::task_arena &arena) {
+void OtcheskovSContrastLinStretchTBB::LinearStretch(const InType &input, OutType &output, int min_i, int range,
+                                                    tbb::task_arena &arena) {
   arena.execute([&] {
     tbb::parallel_for(tbb::blocked_range<size_t>(0, input.size()), [&](const tbb::blocked_range<size_t> &r) {
       for (size_t i = r.begin(); i != r.end(); ++i) {
