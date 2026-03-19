@@ -6,8 +6,11 @@
 #include <string>
 #include <tuple>
 
+#include <iostream>
+
 #include "kutuzov_i_convex_hull_jarvis/common/include/common.hpp"
 #include "kutuzov_i_convex_hull_jarvis/seq/include/ops_seq.hpp"
+#include "kutuzov_i_convex_hull_jarvis/omp/include/ops_omp.hpp"
 #include "util/include/func_test_util.hpp"
 #include "util/include/util.hpp"
 
@@ -27,6 +30,12 @@ class KutuzovIRunFuncTestsThreads : public ppc::util::BaseRunFuncTests<InType, O
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
+
+    if (output_data != expected_output_) {
+      for (long unsigned int i = 0; i < output_data.size(); i++)
+        std::cout << std::get<0>(output_data[i]) << ", " << std::get<1>(output_data[i]) << "  expected:  " << std::get<0>(expected_output_[i]) << ", " << std::get<1>(expected_output_[i]) << std::endl;
+    }
+
     return (output_data == expected_output_);
   }
 
@@ -62,7 +71,8 @@ const std::array<TestType, 3> kTestParam = {std::make_tuple(kTestInput1, kTestOu
                                             std::make_tuple(kTestInput3, kTestOutput3)};
 
 const auto kTestTasksList = std::tuple_cat(
-    ppc::util::AddFuncTask<KutuzovITestConvexHullSEQ, InType>(kTestParam, PPC_SETTINGS_kutuzov_i_convex_hull_jarvis));
+    ppc::util::AddFuncTask<KutuzovITestConvexHullSEQ, InType>(kTestParam, PPC_SETTINGS_kutuzov_i_convex_hull_jarvis),
+    ppc::util::AddFuncTask<KutuzovITestConvexHullOMP, InType>(kTestParam, PPC_SETTINGS_kutuzov_i_convex_hull_jarvis));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
