@@ -86,11 +86,15 @@ bool AkimovIRadixSortIntMergeOMP::PreProcessingImpl() {
 bool AkimovIRadixSortIntMergeOMP::RunImpl() {
   auto &arr = GetOutput();
   int n = static_cast<int>(arr.size());
-  if (n == 0) return true;
+  if (n == 0) {
+    return true;
+  }
 
   int num_threads = ppc::util::GetNumThreads();
   // Для маленьких массивов используем один поток
-  if (n < num_threads * 100) num_threads = 1;
+  if (n < num_threads * 100) {
+    num_threads = 1;
+  }
 
   if (num_threads == 1) {
     RadixSortLocal(arr.begin(), arr.end());
