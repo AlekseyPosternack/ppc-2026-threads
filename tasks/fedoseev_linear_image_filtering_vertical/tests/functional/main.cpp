@@ -132,6 +132,10 @@ class FedoseevFuncTest : public ppc::util::BaseRunFuncTests<Image, Image, TestTy
 
 namespace {
 
+TEST_P(FedoseevFuncTest, ImageFiltering) {
+  ExecuteTest(GetParam());
+}
+
 constexpr std::array<int, 5> kSizes = {3, 5, 7, 10, 16};
 constexpr std::array<const char *, 4> kTypes = {"const", "grad", "rand", "check"};
 constexpr size_t kNumParams = kSizes.size() * kTypes.size();
