@@ -3,10 +3,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <execution>
 #include <numeric>
 #include <queue>
-#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -30,11 +28,12 @@ inline std::vector<Point> ConvexHullMonotonicChain(std::vector<Point> pts) {
     return {};
   }
 
-  std::ranges::sort(pts, [](const Point &a, const Point &b) { return (a.x < b.x) || ((a.x == b.x) && (a.y < b.y)); });
+  std::sort(pts.begin(), pts.end(),
+            [](const Point &a, const Point &b) { return (a.x < b.x) || ((a.x == b.x) && (a.y < b.y)); });
 
-  const auto uniq =
-      std::ranges::unique(pts, [](const Point &a, const Point &b) { return (a.x == b.x) && (a.y == b.y); });
-  pts.erase(uniq.begin(), pts.end());
+  pts.erase(
+      std::unique(pts.begin(), pts.end(), [](const Point &a, const Point &b) { return (a.x == b.x) && (a.y == b.y); }),
+      pts.end());
 
   if (pts.size() == 1) {
     return pts;
@@ -139,9 +138,9 @@ inline OutType SolveSTL(const BinaryImage &img) {
   hulls.resize(comps.size());
 
   std::vector<std::size_t> indices(comps.size());
-  std::ranges::iota(indices, static_cast<std::size_t>(0));
+  std::iota(indices.begin(), indices.end(), static_cast<std::size_t>(0));
 
-  std::for_each(std::execution::par, indices.begin(), indices.end(),
+  std::for_each(indices.begin(), indices.end(),
                 [&](std::size_t i) { hulls[i] = ConvexHullMonotonicChain(std::move(comps[i])); });
 
   return hulls;
