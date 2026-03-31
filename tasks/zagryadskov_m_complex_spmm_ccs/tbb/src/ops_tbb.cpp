@@ -7,7 +7,7 @@
 #include <util/include/util.hpp>
 #include <vector>
 
-#include "oneapi/tbb/parallel_for.h"
+#include "tbb/parallel_for.h"
 #include "zagryadskov_m_complex_spmm_ccs/common/include/common.hpp"
 
 namespace zagryadskov_m_complex_spmm_ccs {
@@ -18,46 +18,88 @@ ZagryadskovMComplexSpMMCCSTBB::ZagryadskovMComplexSpMMCCSTBB(const InType &in) {
   GetOutput() = CCS();
 }
 
-LocalData::LocalData(int m, std::complex<double> zero) : marker(m, -1), acc(m, zero) {}
+void ZagryadskovMComplexSpMMCCSTBB::SpMM_symbolic(const CCS &a, const CCS &b, std::vector<int> &col_ptr) {
+  const int m = a.m;
+  const int n = b.n;
 
-void ZagryadskovMComplexSpMMCCSTBB::SpMMkernel(const CCS &a, const CCS &b, const std::complex<double> &zero, double eps,
-                                               tbb::enumerable_thread_specific<LocalData> &tls,
-                                               std::vector<int> &col_counts) {
-  tbb::parallel_for(tbb::blocked_range<int>(0, b.n), [&](const tbb::blocked_range<int> &r) {
-    auto &local = tls.local();
+  std::vector<int> col_counts(n, 0);
+
+  tbb::enumerable_thread_specific<std::vector<int>> tls_marker([&]() { return std::vector<int>(m, -1); });
+
+  tbb::parallel_for(tbb::blocked_range<int>(0, n), [&](const tbb::blocked_range<int> &r) {
+    auto &marker = tls_marker.local();
+
+    for (int j = r.begin(); j < r.end(); ++j) {
+      int count = 0;
+
+      for (int k = b.col_ptr[j]; k < b.col_ptr[j + 1]; ++k) {
+        int b_row = b.row_ind[k];
+
+        for (int zp = a.col_ptr[b_row]; zp < a.col_ptr[b_row + 1]; ++zp) {
+          int a_row = a.row_ind[zp];
+
+          if (marker[a_row] != j) {
+            marker[a_row] = j;
+            ++count;
+          }
+        }
+      }
+
+      col_counts[j] = count;
+    }
+  });
+  col_ptr.resize(n + 1);
+  col_ptr[0] = 0;
+  for (int j = 0; j < n; ++j) {
+    col_ptr[j + 1] = col_ptr[j] + col_counts[j];
+  }
+}
+
+void ZagryadskovMComplexSpMMCCSTBB::SpMM_numeric(const CCS &a, const CCS &b, CCS &c, const std::complex<double> &zero,
+                                                 double eps) {
+  const int m = a.m;
+  const int n = b.n;
+
+  tbb::enumerable_thread_specific<std::vector<int>> tls_marker([&]() { return std::vector<int>(m, -1); });
+
+  tbb::enumerable_thread_specific<std::vector<std::complex<double>>> tls_acc(
+      [&]() { return std::vector<std::complex<double>>(m, zero); });
+
+  tbb::parallel_for(tbb::blocked_range<int>(0, n), [&](const tbb::blocked_range<int> &r) {
+    auto &marker = tls_marker.local();
+    auto &acc = tls_acc.local();
 
     std::vector<int> rows;
 
     for (int j = r.begin(); j < r.end(); ++j) {
       rows.clear();
 
+      int write_ptr = c.col_ptr[j];
+
       for (int k = b.col_ptr[j]; k < b.col_ptr[j + 1]; ++k) {
         std::complex<double> tmpval = b.values[k];
-        int btmpind = b.row_ind[k];
+        int b_row = b.row_ind[k];
 
-        for (int zp = a.col_ptr[btmpind]; zp < a.col_ptr[btmpind + 1]; ++zp) {
-          int atmpind = a.row_ind[zp];
-          local.acc[atmpind] += tmpval * a.values[zp];
+        for (int zp = a.col_ptr[b_row]; zp < a.col_ptr[b_row + 1]; ++zp) {
+          int a_row = a.row_ind[zp];
 
-          if (local.marker[atmpind] != j) {
-            rows.push_back(atmpind);
-            local.marker[atmpind] = j;
+          acc[a_row] += tmpval * a.values[zp];
+
+          if (marker[a_row] != j) {
+            marker[a_row] = j;
+            rows.push_back(a_row);
           }
         }
       }
 
-      int count = 0;
-
-      for (int tmpind : rows) {
-        if (std::abs(local.acc[tmpind]) > eps) {
-          local.values.push_back(local.acc[tmpind]);
-          local.row_ind.push_back(tmpind);
-          ++count;
+      for (int r_idx : rows) {
+        if (std::abs(acc[r_idx]) > eps) {
+          c.row_ind[write_ptr] = r_idx;
+          c.values[write_ptr] = acc[r_idx];
+          ++write_ptr;
         }
-        local.acc[tmpind] = zero;
+        acc[r_idx] = zero;
       }
-
-      col_counts[j] = count;
     }
   });
 }
@@ -65,38 +107,17 @@ void ZagryadskovMComplexSpMMCCSTBB::SpMMkernel(const CCS &a, const CCS &b, const
 void ZagryadskovMComplexSpMMCCSTBB::SpMM(const CCS &a, const CCS &b, CCS &c) {
   c.m = a.m;
   c.n = b.n;
-  c.col_ptr.assign(b.n + 1, 0);
-  c.row_ind.clear();
-  c.values.clear();
+
   std::complex<double> zero(0.0, 0.0);
   const double eps = 1e-14;
-  std::vector<int> col_counts(b.n, 0);
 
-  tbb::enumerable_thread_specific<LocalData> tls([&]() { return LocalData(a.m, zero); });
+  SpMM_symbolic(a, b, c.col_ptr);
 
-  SpMMkernel(a, b, zero, eps, tls, col_counts);
+  int nnz = c.col_ptr[b.n];
+  c.row_ind.resize(nnz);
+  c.values.resize(nnz);
 
-  for (int j = 0; j < b.n; ++j) {
-    c.col_ptr[j + 1] = c.col_ptr[j] + col_counts[j];
-  }
-
-  c.row_ind.resize(c.col_ptr[b.n]);
-  c.values.resize(c.col_ptr[b.n]);
-
-  std::vector<int> offsets = c.col_ptr;
-
-  for (auto &local : tls) {
-    int ptr = 0;
-    for (int j = 0; j < b.n; ++j) {
-      int cnt = col_counts[j];
-      for (int k = 0; k < cnt; ++k) {
-        int pos = offsets[j]++;
-        c.row_ind[pos] = local.row_ind[ptr];
-        c.values[pos] = local.values[ptr];
-        ++ptr;
-      }
-    }
-  }
+  SpMM_numeric(a, b, c, zero, eps);
 }
 
 bool ZagryadskovMComplexSpMMCCSTBB::ValidationImpl() {
