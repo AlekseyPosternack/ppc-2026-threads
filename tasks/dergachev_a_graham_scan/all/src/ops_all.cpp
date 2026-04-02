@@ -39,28 +39,22 @@ int FindPivot(const std::vector<Pt> &pts) {
   return best;
 }
 
+bool AngleCompare(const Pt &pivot, const Pt &a, const Pt &b) {
+  double c = Cross(pivot, a, b);
+  if (c != 0.0) {
+    return c > 0.0;
+  }
+  return Dist2(pivot, a) < Dist2(pivot, b);
+}
+
 void AngleSort(std::vector<Pt> &pts) {
   Pt pivot = pts[0];
-  std::sort(pts.begin() + 1, pts.end(), [&pivot](const Pt &a, const Pt &b) {
-    double c = Cross(pivot, a, b);
-    if (c > 0.0) {
-      return true;
-    }
-    if (c < 0.0) {
-      return false;
-    }
-    return Dist2(pivot, a) < Dist2(pivot, b);
-  });
+  std::sort(pts.begin() + 1, pts.end(), [&pivot](const Pt &a, const Pt &b) { return AngleCompare(pivot, a, b); });
 }
 
 std::vector<Pt> BuildHull(std::vector<Pt> pts) {
-  int n = static_cast<int>(pts.size());
-  if (n <= 1) {
+  if (pts.size() < 2) {
     return pts;
-  }
-  if (std::all_of(pts.begin() + 1, pts.end(),
-                  [&](const Pt &p) { return p.first == pts[0].first && p.second == pts[0].second; })) {
-    return {pts[0]};
   }
   int pivot = FindPivot(pts);
   std::swap(pts[0], pts[pivot]);
@@ -82,7 +76,7 @@ int ChunkLen(int idx, int total, int parts) {
 std::vector<Pt> ThreadedHull(const std::vector<Pt> &pts) {
   int n = static_cast<int>(pts.size());
   int num_threads = ppc::util::GetNumThreads();
-  if (num_threads <= 1 || n < num_threads * 4) {
+  if (n < num_threads * 4) {
     return BuildHull({pts.begin(), pts.end()});
   }
   std::vector<std::vector<Pt>> partial(num_threads);
@@ -137,13 +131,9 @@ bool DergachevAGrahamScanALL::PreProcessingImpl() {
 bool DergachevAGrahamScanALL::RunImpl() {
   hull_.clear();
   std::vector<Pt> pts(points_.begin(), points_.end());
-  int n = static_cast<int>(pts.size());
 
-  if (n <= 1 || std::all_of(pts.begin() + 1, pts.end(),
-                            [&](const Pt &p) { return p.first == pts[0].first && p.second == pts[0].second; })) {
-    if (!pts.empty()) {
-      hull_.push_back(pts[0]);
-    }
+  if (pts.size() <= 1) {
+    hull_ = pts;
     return true;
   }
 
