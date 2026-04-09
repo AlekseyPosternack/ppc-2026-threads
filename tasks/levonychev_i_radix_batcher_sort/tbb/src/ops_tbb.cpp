@@ -1,6 +1,9 @@
-#include "levonychev_i_radix_batcher_sort/omp/include/ops_omp.hpp"
+#include "levonychev_i_radix_batcher_sort/tbb/include/ops_tbb.hpp"
 
-#include <omp.h>
+#include <tbb/blocked_range.h>
+#include <tbb/global_control.h>
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_invoke.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -12,12 +15,12 @@
 
 namespace levonychev_i_radix_batcher_sort {
 
-LevonychevIRadixBatcherSortOMP::LevonychevIRadixBatcherSortOMP(const InType &in) {
+LevonychevIRadixBatcherSortTBB::LevonychevIRadixBatcherSortTBB(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
 }
 
-void LevonychevIRadixBatcherSortOMP::CountingSort(InType &arr, size_t byte_index) {
+void LevonychevIRadixBatcherSortTBB::CountingSort(InType &arr, size_t byte_index) {
   const size_t byte = 256;
   std::vector<int> count(byte, 0);
   OutType result(arr.size());
@@ -49,15 +52,15 @@ void LevonychevIRadixBatcherSortOMP::CountingSort(InType &arr, size_t byte_index
   arr = result;
 }
 
-bool LevonychevIRadixBatcherSortOMP::ValidationImpl() {
+bool LevonychevIRadixBatcherSortTBB::ValidationImpl() {
   return !GetInput().empty();
 }
 
-bool LevonychevIRadixBatcherSortOMP::PreProcessingImpl() {
+bool LevonychevIRadixBatcherSortTBB::PreProcessingImpl() {
   return true;
 }
 
-void LevonychevIRadixBatcherSortOMP::BatcherCompareRange(std::vector<int> &arr, int j, int k, int p2) {
+void LevonychevIRadixBatcherSortTBB::BatcherCompareRange(std::vector<int> &arr, int j, int k, int p2) {
   int range = std::min(k, static_cast<int>(arr.size()) - j - k);
   for (int i = 0; i < range; ++i) {
     int idx1 = j + i;
@@ -68,54 +71,52 @@ void LevonychevIRadixBatcherSortOMP::BatcherCompareRange(std::vector<int> &arr, 
   }
 }
 
-void LevonychevIRadixBatcherSortOMP::BatcherMergeIterative(std::vector<int> &arr, int start_p, int threads) {
+void LevonychevIRadixBatcherSortTBB::BatcherMergeIterative(std::vector<int> &arr, int start_p) {
   int n = static_cast<int>(arr.size());
   for (int pv = start_p; pv < n; pv <<= 1) {
     int p2 = pv << 1;
     for (int k = pv; k > 0; k >>= 1) {
-#pragma omp parallel for schedule(static) default(none) shared(n, pv, p2, k, arr) num_threads(threads)
-      for (int j = k % pv; j < n - k; j += 2 * k) {
+      int num_iters = (n - k - (k % pv) + 2 * k - 1) / (2 * k);
+
+      tbb::parallel_for(0, num_iters, [&](int i) {
+        int j = (k % pv) + (i * (2 * k));
         BatcherCompareRange(arr, j, k, p2);
-      }
+      });
     }
   }
 }
 
-bool LevonychevIRadixBatcherSortOMP::RunImpl() {
+bool LevonychevIRadixBatcherSortTBB::RunImpl() {
   GetOutput() = GetInput();
   int n = static_cast<int>(GetOutput().size());
   if (n <= 1) {
     return true;
   }
-
   int num_threads = ppc::util::GetNumThreads();
-  int block_size = n / num_threads;
+  int grain = std::max(1, n / num_threads);
 
-#pragma omp parallel default(none) shared(num_threads, block_size, n, std::ranges::copy) num_threads(num_threads)
-  {
-    int tid = omp_get_thread_num();
-    int left = tid * block_size;
-    int right = (tid == num_threads - 1) ? n : (tid + 1) * block_size;
+  tbb::parallel_for(tbb::blocked_range<int>(0, n, grain), [&](const tbb::blocked_range<int> &r) {
+    int left = r.begin();
+    int right = r.end();
 
-    if (left < right) {
-      std::vector<int> local_block(GetOutput().begin() + left, GetOutput().begin() + right);
-      for (size_t i = 0; i < sizeof(int); ++i) {
-        CountingSort(local_block, i);
-      }
-      std::ranges::copy(local_block, GetOutput().begin() + left);
+    std::vector<int> local_block(GetOutput().begin() + left, GetOutput().begin() + right);
+    for (size_t i = 0; i < sizeof(int); ++i) {
+      CountingSort(local_block, i);
     }
-  }
+    std::ranges::copy(local_block, GetOutput().begin() + left);
+  });
 
+  int block_size = grain;
   int start_p = 1;
   while (start_p < block_size) {
     start_p <<= 1;
   }
-  BatcherMergeIterative(GetOutput(), start_p, num_threads);
 
+  BatcherMergeIterative(GetOutput(), start_p);
   return true;
 }
 
-bool LevonychevIRadixBatcherSortOMP::PostProcessingImpl() {
+bool LevonychevIRadixBatcherSortTBB::PostProcessingImpl() {
   return true;
 }
 
