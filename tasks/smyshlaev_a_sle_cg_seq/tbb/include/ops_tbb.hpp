@@ -10,7 +10,7 @@ namespace smyshlaev_a_sle_cg_seq {
 class SmyshlaevASleCgTaskTBB : public BaseTask {
  public:
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
-    return ppc::task::TypeOfTask::kOMP;
+    return ppc::task::TypeOfTask::kTBB;
   }
   explicit SmyshlaevASleCgTaskTBB(const InType &in);
 
