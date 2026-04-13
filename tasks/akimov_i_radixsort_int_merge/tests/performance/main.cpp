@@ -6,6 +6,7 @@
 #include "akimov_i_radixsort_int_merge/common/include/common.hpp"
 #include "akimov_i_radixsort_int_merge/omp/include/ops_omp.hpp"
 #include "akimov_i_radixsort_int_merge/seq/include/ops_seq.hpp"
+#include "akimov_i_radixsort_int_merge/tbb/include/ops_tbb.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace akimov_i_radixsort_int_merge {
@@ -42,8 +43,8 @@ TEST_P(AkimovIRadixSortIntMergePerfTests, RunPerfModes) {
 namespace {
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, AkimovIRadixSortIntMergeSEQ, AkimovIRadixSortIntMergeOMP>(
-        PPC_SETTINGS_akimov_i_radixsort_int_merge);
+    ppc::util::MakeAllPerfTasks<InType, AkimovIRadixSortIntMergeSEQ, AkimovIRadixSortIntMergeOMP,
+                                AkimovIRadixSortIntMergeTBB>(PPC_SETTINGS_akimov_i_radixsort_int_merge);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
