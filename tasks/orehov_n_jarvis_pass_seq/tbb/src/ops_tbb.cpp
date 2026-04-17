@@ -50,7 +50,7 @@ bool OrehovNJarvisPassTBB::RunImpl() {
 
 Point OrehovNJarvisPassTBB::FindNext(Point current) const {
   Point next = (current == input_[0]) ? input_[1] : input_[0];
-  
+
   const size_t n = input_.size();
   const auto &input = input_;
 
@@ -59,11 +59,10 @@ Point OrehovNJarvisPassTBB::FindNext(Point current) const {
     const std::vector<Point> &input;
     Point best_point;
 
-    Body(const Point &c, const std::vector<Point> &in) 
+    Body(const Point &c, const std::vector<Point> &in)
         : current(c), input(in), best_point((current == in[0]) ? in[1] : in[0]) {}
 
-    Body(Body &other, tbb::split) 
-        : current(other.current), input(other.input), best_point(other.best_point) {}
+    Body(Body &other, tbb::split) : current(other.current), input(other.input), best_point(other.best_point) {}
 
     void operator()(const tbb::blocked_range<size_t> &range) {
       for (size_t i = range.begin(); i != range.end(); ++i) {
@@ -77,8 +76,7 @@ Point OrehovNJarvisPassTBB::FindNext(Point current) const {
         if (orient > 0) {
           best_point = point;
         } else if (orient == 0) {
-          if (OrehovNJarvisPassTBB::Distance(current, point) > 
-              OrehovNJarvisPassTBB::Distance(current, best_point)) {
+          if (OrehovNJarvisPassTBB::Distance(current, point) > OrehovNJarvisPassTBB::Distance(current, best_point)) {
             best_point = point;
           }
         }
@@ -90,7 +88,7 @@ Point OrehovNJarvisPassTBB::FindNext(Point current) const {
       if (global_orient > 0) {
         best_point = other.best_point;
       } else if (global_orient == 0) {
-        if (OrehovNJarvisPassTBB::Distance(current, other.best_point) > 
+        if (OrehovNJarvisPassTBB::Distance(current, other.best_point) >
             OrehovNJarvisPassTBB::Distance(current, best_point)) {
           best_point = other.best_point;
         }
@@ -100,7 +98,7 @@ Point OrehovNJarvisPassTBB::FindNext(Point current) const {
 
   Body body(current, input);
   tbb::parallel_reduce(tbb::blocked_range<size_t>(0, n), body);
-  
+
   return body.best_point;
 }
 

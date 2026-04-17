@@ -3,9 +3,9 @@
 #include <cmath>
 
 #include "orehov_n_jarvis_pass_seq/common/include/common.hpp"
-#include "orehov_n_jarvis_pass_seq/tbb/include/ops_tbb.hpp"
 #include "orehov_n_jarvis_pass_seq/omp/include/ops_omp.hpp"
 #include "orehov_n_jarvis_pass_seq/seq/include/ops_seq.hpp"
+#include "orehov_n_jarvis_pass_seq/tbb/include/ops_tbb.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace orehov_n_jarvis_pass_seq {
@@ -42,7 +42,8 @@ TEST_P(OrehovNJarvisPassSEQPerfTests, RunPerfModes) {
 namespace {
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, OrehovNJarvisPassSEQ, OrehovNJarvisPassOMP, OrehovNJarvisPassTBB>(PPC_SETTINGS_orehov_n_jarvis_pass_seq);
+    ppc::util::MakeAllPerfTasks<InType, OrehovNJarvisPassSEQ, OrehovNJarvisPassOMP, OrehovNJarvisPassTBB>(
+        PPC_SETTINGS_orehov_n_jarvis_pass_seq);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
