@@ -1,4 +1,4 @@
-#include "orehov_n_jarvis_pass_seq/tbb/include/ops_tbb.hpp"
+#include "orehov_n_jarvis_pass/tbb/include/ops_tbb.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -6,9 +6,9 @@
 #include <vector>
 
 #include "oneapi/tbb.h"
-#include "orehov_n_jarvis_pass_seq/common/include/common.hpp"
+#include "orehov_n_jarvis_pass/common/include/common.hpp"
 
-namespace orehov_n_jarvis_pass_seq {
+namespace orehov_n_jarvis_pass {
 
 OrehovNJarvisPassTBB::OrehovNJarvisPassTBB(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -123,4 +123,4 @@ bool OrehovNJarvisPassTBB::PostProcessingImpl() {
   return true;
 }
 
-}  // namespace orehov_n_jarvis_pass_seq
+}  // namespace orehov_n_jarvis_pass
