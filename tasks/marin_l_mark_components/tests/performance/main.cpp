@@ -81,8 +81,8 @@ TEST_P(MarinLRunPerfTestComponents, RunPerfModes) {
 namespace {
 
 const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, MarinLMarkComponentsSEQ, MarinLMarkComponentsOMP, MarinLMarkComponentsSTL, MarinLMarkComponentsTBB>(
-        PPC_SETTINGS_marin_l_mark_components);
+    ppc::util::MakeAllPerfTasks<InType, MarinLMarkComponentsSEQ, MarinLMarkComponentsOMP, MarinLMarkComponentsSTL,
+                                MarinLMarkComponentsTBB>(PPC_SETTINGS_marin_l_mark_components);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 

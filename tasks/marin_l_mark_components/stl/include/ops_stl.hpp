@@ -1,11 +1,3 @@
-#pragma once
-
-#include <cstdint>
-#include <vector>
-
-#include "marin_l_mark_components/common/include/common.hpp"
-#include "task/include/task.hpp"
-
 namespace marin_l_mark_components {
 
 class MarinLMarkComponentsSTL : public BaseTask {
