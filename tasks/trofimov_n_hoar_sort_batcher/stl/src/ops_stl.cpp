@@ -31,22 +31,35 @@ int HoarePartition(std::vector<int> &arr, int left, int right) {
 }
 
 void QuickSortStlTask(std::vector<int> &arr, int left, int right, int depth_limit) {
-  if (left >= right) {
-    return;
-  }
-
   constexpr int kSequentialThreshold = 1024;
 
-  if ((right - left) < kSequentialThreshold || depth_limit <= 0) {
-    std::sort(arr.begin() + left, arr.begin() + right + 1);
-    return;
+  struct Segment {
+    int left;
+    int right;
+    int depth;
+  };
+
+  std::vector<Segment> stack;
+  stack.push_back({left, right, depth_limit});
+
+  while (!stack.empty()) {
+    Segment seg = stack.back();
+    stack.pop_back();
+
+    if (seg.left >= seg.right) {
+      continue;
+    }
+
+    if ((seg.right - seg.left) < kSequentialThreshold || seg.depth <= 0) {
+      std::sort(arr.begin() + seg.left, arr.begin() + seg.right + 1);
+      continue;
+    }
+
+    const int split = HoarePartition(arr, seg.left, seg.right);
+
+    stack.push_back({split + 1, seg.right, seg.depth - 1});
+    stack.push_back({seg.left, split, seg.depth - 1});
   }
-
-  const int split = HoarePartition(arr, left, right);
-
-  std::thread left_thread([&arr, left, split, depth_limit]() { QuickSortStlTask(arr, left, split, depth_limit - 1); });
-  QuickSortStlTask(arr, split + 1, right, depth_limit - 1);
-  left_thread.join();
 }
 
 }  // namespace
