@@ -72,8 +72,9 @@ TEST_P(KolotukhinAGaussinBlurePerfTests, RunPerfModes) {
 
 namespace {
 
-const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, KolotukhinAGaussinBlureOMP, KolotukhinAGaussinBlureSEQ,
-    KolotukhinAGaussinBlureTBB>(PPC_SETTINGS_kolotukhin_a_gaussian_blur);
+const auto kAllPerfTasks =
+    ppc::util::MakeAllPerfTasks<InType, KolotukhinAGaussinBlureOMP, KolotukhinAGaussinBlureSEQ,
+                                KolotukhinAGaussinBlureTBB>(PPC_SETTINGS_kolotukhin_a_gaussian_blur);
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
 const auto kPerfTestName = KolotukhinAGaussinBlurePerfTests::CustomPerfTestName;
