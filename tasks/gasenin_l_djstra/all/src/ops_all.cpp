@@ -137,12 +137,13 @@ bool GaseninLDjstraALL::RunImpl() {
   const int local_n = local_n_;
   const int start_v = start_v_;
 
-  auto min_pair_op_func = [](void *in, void *inout, int *len, MPI_Datatype *dtype) {
-    const int *len_const = len;
-    MinPairImpl(in, inout, len_const, dtype);
+  auto min_pair_op_func = [](void *in, void *inout, const int *len, MPI_Datatype *dtype) {
+    MinPairImpl(in, inout, len, dtype);
   };
+
   MPI_Op min_pair_op = MPI_OP_NULL;
-  MPI_Op_create(min_pair_op_func, 1, &min_pair_op);
+
+  MPI_Op_create(reinterpret_cast<MPI_User_function *>(+min_pair_op_func), 1, &min_pair_op);
 
   int num_threads = 1;
 #pragma omp parallel default(none) shared(num_threads)
