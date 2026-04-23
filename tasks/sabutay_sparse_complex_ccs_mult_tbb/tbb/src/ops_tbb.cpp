@@ -13,6 +13,7 @@ namespace sabutay_sparse_complex_ccs_mult_tbb {
 
 namespace {
 
+  
 struct ColumnData {
   std::vector<int> row_ind;
   std::vector<Complex> values;
