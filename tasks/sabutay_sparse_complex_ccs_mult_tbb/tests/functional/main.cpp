@@ -1,183 +1,167 @@
 #include <gtest/gtest.h>
 
-#include <tuple>
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <complex>
+#include <cstddef>
+#include <string>
+#include <utility>
 #include <vector>
 
+#include "../../../modules/util/include/func_test_util.hpp"
 #include "sabutay_sparse_complex_ccs_mult_tbb/common/include/common.hpp"
 #include "sabutay_sparse_complex_ccs_mult_tbb/tbb/include/ops_tbb.hpp"
-#include "task/include/task.hpp"
+#include "util/include/util.hpp"
 
 namespace sabutay_sparse_complex_ccs_mult_tbb {
 
-namespace {
+// Constants for test values
+constexpr double kZero = 0.0;
+constexpr double kValue1 = 1.0;
+constexpr double kValue2 = 2.0;
+constexpr double kValue3 = 3.0;
+constexpr double kValue4 = 4.0;
+constexpr double kValue5 = 5.0;
+constexpr double kValue6 = 6.0;
+constexpr double kValue12 = 12.0;
+constexpr double kValue19 = 19.0;
 
-struct TaskExecutionResult {
-  ppc::task::TypeOfTask type = ppc::task::TypeOfTask::kTBB;
-  bool validation = false;
-  bool preprocessing = false;
-  bool run = false;
-  bool postprocessing = false;
-  OutType output;
+class SabutayARunFuncTestsTbb : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+ public:
+  static auto PrintTestParam(const TestType &test_param) -> std::string {
+    return std::to_string(test_param);
+  }
+
+ protected:
+  void SetUp() override {
+    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    CCS &a = std::get<0>(input_data_);
+    CCS &b = std::get<1>(input_data_);
+    CCS &c = test_result_;
+
+    if (params == 0) {
+      a.m = 2;
+      a.n = 3;
+      a.col_ptr = {0, 1, 2, 3};
+      a.row_ind = {0, 1, 0};
+      a.values = {{kValue1, kZero}, {kValue2, kZero}, {kValue3, kZero}};
+
+      b.m = 3;
+      b.n = 2;
+      b.col_ptr = {0, 2, 3};
+      b.row_ind = {0, 2, 1};
+      b.values = {{kValue4, kZero}, {kValue5, kZero}, {kValue6, kZero}};
+
+      c.m = 2;
+      c.n = 2;
+      c.col_ptr = {0, 1, 2};
+      c.row_ind = {0, 1};
+      c.values = {{kValue19, kZero}, {kValue12, kZero}};
+    }
+    if (params == 1) {
+      a.m = 2;
+      a.n = 2;
+      a.col_ptr = {0, 1, 2};
+      a.row_ind = {0, 1};
+      a.values = {{kValue1, kZero}, {kValue2, kZero}};
+
+      b.m = 2;
+      b.n = 2;
+      b.col_ptr = {0, 1, 2};
+      b.row_ind = {1, 0};
+      b.values = {{kValue3, kZero}, {kValue4, kZero}};
+
+      c.m = 2;
+      c.n = 2;
+      c.col_ptr = {0, 1, 2};
+      c.row_ind = {1, 0};
+      c.values = {{kValue6, kZero}, {kValue4, kZero}};
+    }
+    if (params == 2) {
+      a.m = 1;
+      a.n = 1;
+      a.col_ptr = {0, 1};
+      a.row_ind = {0};
+      a.values = {{kValue2, kValue1}};
+
+      b.m = 1;
+      b.n = 1;
+      b.col_ptr = {0, 1};
+      b.row_ind = {0};
+      b.values = {{kValue1, kValue1}};
+
+      c.m = 1;
+      c.n = 1;
+      c.col_ptr = {0, 1};
+      c.row_ind = {0};
+      c.values = {{kValue1, kValue3}};
+    }
+  }
+
+  bool CheckTestOutputData(OutType &output_data) override {
+    bool result = true;
+    constexpr double kEps = 1e-14;
+    if (test_result_.m != output_data.m || test_result_.n != output_data.n ||
+        test_result_.col_ptr.size() != output_data.col_ptr.size() ||
+        test_result_.row_ind.size() != output_data.row_ind.size() ||
+        test_result_.values.size() != output_data.values.size()) {
+      return false;
+    }
+
+    for (size_t i = 0; i < test_result_.col_ptr.size(); ++i) {
+      if (test_result_.col_ptr[i] != output_data.col_ptr[i]) {
+        return false;
+      }
+    }
+
+    for (int j = 0; j < test_result_.n; ++j) {
+      std::vector<std::pair<int, std::complex<double>>> test;
+      std::vector<std::pair<int, std::complex<double>>> output;
+      for (int k = 0; k < test_result_.col_ptr[j + 1] - test_result_.col_ptr[j]; ++k) {
+        test.emplace_back(test_result_.row_ind[test_result_.col_ptr[j] + k],
+                          test_result_.values[test_result_.col_ptr[j] + k]);
+        output.emplace_back(output_data.row_ind[output_data.col_ptr[j] + k],
+                            output_data.values[output_data.col_ptr[j] + k]);
+      }
+      auto cmp = [](const auto &x, const auto &y) { return x.first < y.first; };
+      std::ranges::sort(test, cmp);
+      std::ranges::sort(output, cmp);
+      for (size_t i = 0; i < test.size(); ++i) {
+        if (test[i].first != output[i].first || std::abs(test[i].second - output[i].second) > kEps) {
+          result = false;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  InType GetTestInputData() override {
+    return input_data_;
+  }
+
+ private:
+  InType input_data_;
+  OutType test_result_;
 };
 
-[[nodiscard]] TaskExecutionResult ExecuteTask(const InType &input) {
-  SabutayASparseComplexCcsMultTBB task(input);
+namespace {
 
-  TaskExecutionResult result;
-  result.type = task.GetDynamicTypeOfTask();
-  result.validation = task.Validation();
-  result.preprocessing = task.PreProcessing();
-  result.run = task.Run();
-  result.postprocessing = task.PostProcessing();
-  result.output = task.GetOutput();
-  return result;
+TEST_P(SabutayARunFuncTestsTbb, FuncCCSTest) {
+  ExecuteTest(GetParam());
 }
 
-[[nodiscard]] bool HasSuccessfulExecution(const TaskExecutionResult &result) {
-  return result.type == ppc::task::TypeOfTask::kTBB && result.validation && result.preprocessing && result.run &&
-         result.postprocessing && IsValidCcs(result.output);
-}
+const std::array<TestType, 3> kTestParam = {0, 1, 2};
 
-[[nodiscard]] bool HasSafeRejectedExecution(const TaskExecutionResult &result) {
-  return result.type == ppc::task::TypeOfTask::kTBB && !result.validation && result.preprocessing && result.run &&
-         result.postprocessing && IsValidCcs(result.output);
-}
+const auto kTestTasksList = ppc::util::AddFuncTask<SabutaySparseComplexCcsMultTBB, InType>(
+    kTestParam, PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_tbb);
 
-[[nodiscard]] bool IsZeroMatrixOutput(const SparseMatrixCCS &matrix, int rows, int cols) {
-  return AreMatricesEqual(matrix, MakeZeroMatrix(rows, cols));
-}
+const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-[[nodiscard]] bool IsSingleValueColumn(const SparseMatrixCCS &matrix, int row, const Complex &value) {
-  return matrix.cols == 1 && matrix.col_ptr == std::vector<int>({0, 1}) && matrix.row_ind == std::vector<int>({row}) &&
-         matrix.values.size() == 1U && IsNearZero(matrix.values[0] - value);
-}
+const auto kPerfTestName = SabutayARunFuncTestsTbb::PrintFuncTestName<SabutayARunFuncTestsTbb>;
 
-TEST(SabutayASparseComplexCcsMultTBBFunctional, MultipliesSquareMatrices) {
-  const SparseMatrixCCS lhs = DenseToCcs({
-      {Complex{1.0, 2.0}, Complex{}, Complex{}},
-      {Complex{}, Complex{-1.0, 1.0}, Complex{}},
-      {Complex{}, Complex{}, Complex{2.0, -1.0}},
-  });
-  const SparseMatrixCCS rhs = DenseToCcs({
-      {Complex{2.0, -1.0}, Complex{}, Complex{}},
-      {Complex{}, Complex{3.0, 2.0}, Complex{}},
-      {Complex{}, Complex{}, Complex{-1.0, 4.0}},
-  });
-
-  const SparseMatrixCCS expected = DenseToCcs({
-      {Complex{4.0, 3.0}, Complex{}, Complex{}},
-      {Complex{}, Complex{-5.0, 1.0}, Complex{}},
-      {Complex{}, Complex{}, Complex{2.0, 9.0}},
-  });
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(lhs, rhs));
-  ASSERT_TRUE(HasSuccessfulExecution(result));
-  EXPECT_TRUE(AreMatricesEqual(result.output, expected));
-}
-
-TEST(SabutayASparseComplexCcsMultTBBFunctional, MultipliesRectangularMatrices) {
-  const SparseMatrixCCS lhs = DenseToCcs({
-      {Complex{1.0, 0.0}, Complex{}, Complex{2.0, -1.0}},
-      {Complex{}, Complex{3.0, 1.0}, Complex{}},
-  });
-  const SparseMatrixCCS rhs = DenseToCcs({
-      {Complex{1.0, 2.0}, Complex{}},
-      {Complex{}, Complex{2.0, 0.0}},
-      {Complex{4.0, -1.0}, Complex{1.0, 1.0}},
-  });
-
-  const SparseMatrixCCS expected = MultiplyCcsReference(lhs, rhs);
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(lhs, rhs));
-  ASSERT_TRUE(HasSuccessfulExecution(result));
-  EXPECT_TRUE(AreMatricesEqual(result.output, expected));
-}
-
-TEST(SabutayASparseComplexCcsMultTBBFunctional, RemovesZeroEntriesAfterCancellation) {
-  const SparseMatrixCCS lhs = DenseToCcs({
-      {Complex{1.0, 0.0}, Complex{1.0, 0.0}},
-      {Complex{1.0, 0.0}, Complex{-1.0, 0.0}},
-  });
-  const SparseMatrixCCS rhs = DenseToCcs({
-      {Complex{1.0, 0.0}},
-      {Complex{-1.0, 0.0}},
-  });
-
-  const SparseMatrixCCS expected = DenseToCcs({
-      {Complex{}},
-      {Complex{2.0, 0.0}},
-  });
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(lhs, rhs));
-  ASSERT_TRUE(HasSuccessfulExecution(result));
-  EXPECT_TRUE(AreMatricesEqual(result.output, expected));
-  EXPECT_TRUE(IsSingleValueColumn(result.output, 1, Complex{2.0, 0.0}));
-}
-
-TEST(SabutayASparseComplexCcsMultTBBFunctional, HandlesUnsortedColumnsAndDuplicateRows) {
-  SparseMatrixCCS lhs;
-  lhs.rows = 3;
-  lhs.cols = 2;
-  lhs.col_ptr = {0, 2, 5};
-  lhs.row_ind = {2, 0, 1, 1, 0};
-  lhs.values = {
-      Complex{1.0, 1.0}, Complex{2.0, -1.0}, Complex{1.0, 0.0}, Complex{2.0, 0.0}, Complex{-1.0, 2.0},
-  };
-
-  SparseMatrixCCS rhs;
-  rhs.rows = 2;
-  rhs.cols = 2;
-  rhs.col_ptr = {0, 2, 4};
-  rhs.row_ind = {1, 0, 1, 0};
-  rhs.values = {
-      Complex{1.0, 0.0},
-      Complex{2.0, 0.0},
-      Complex{-1.0, 1.0},
-      Complex{3.0, -2.0},
-  };
-
-  const SparseMatrixCCS expected = MultiplyCcsReference(lhs, rhs);
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(lhs, rhs));
-  ASSERT_TRUE(HasSuccessfulExecution(result));
-  EXPECT_TRUE(AreMatricesEqual(result.output, expected));
-}
-
-TEST(SabutayASparseComplexCcsMultTBBFunctional, SupportsDegenerateZeroInnerDimension) {
-  const SparseMatrixCCS lhs = MakeZeroMatrix(3, 0);
-  const SparseMatrixCCS rhs = MakeZeroMatrix(0, 4);
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(lhs, rhs));
-  ASSERT_TRUE(HasSuccessfulExecution(result));
-  EXPECT_TRUE(IsZeroMatrixOutput(result.output, 3, 4));
-}
-
-TEST(SabutayASparseComplexCcsMultTBBFunctional, ValidationFailsForDimensionMismatchButPipelineIsSafe) {
-  const SparseMatrixCCS lhs = BuildDeterministicMatrix(3, 2, 2, 1);
-  const SparseMatrixCCS rhs = BuildDeterministicMatrix(3, 2, 2, 5);
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(lhs, rhs));
-  ASSERT_TRUE(HasSafeRejectedExecution(result));
-  EXPECT_TRUE(IsZeroMatrixOutput(result.output, 0, 0));
-}
-
-TEST(SabutayASparseComplexCcsMultTBBFunctional, ValidationFailsForBrokenCcsButPipelineIsSafe) {
-  SparseMatrixCCS broken;
-  broken.rows = 2;
-  broken.cols = 2;
-  broken.col_ptr = {0, 2, 1};
-  broken.row_ind = {0, 1};
-  broken.values = {Complex{1.0, 0.0}, Complex{2.0, 0.0}};
-
-  const SparseMatrixCCS rhs = DenseToCcs({
-      {Complex{1.0, 0.0}, Complex{}},
-      {Complex{}, Complex{1.0, 0.0}},
-  });
-
-  const TaskExecutionResult result = ExecuteTask(std::make_tuple(broken, rhs));
-  ASSERT_TRUE(HasSafeRejectedExecution(result));
-  EXPECT_TRUE(IsZeroMatrixOutput(result.output, 0, 0));
-}
+INSTANTIATE_TEST_SUITE_P(RunFuncCCSTest, SabutayARunFuncTestsTbb, kGtestValues, kPerfTestName);
 
 }  // namespace
 
