@@ -25,7 +25,7 @@ struct SparseMatrixCCS {
 
 inline constexpr double kComplexEps = 1e-12;
 
-[[nodiscard]] inline bool IsNearZero(const Complex& value, double eps = kComplexEps) {
+[[nodiscard]] inline bool IsNearZero(const Complex &value, double eps = kComplexEps) {
   return std::norm(value) <= (eps * eps);
 }
 
@@ -41,7 +41,7 @@ inline constexpr double kComplexEps = 1e-12;
   return matrix;
 }
 
-[[nodiscard]] inline bool IsValidCcs(const SparseMatrixCCS& matrix) {
+[[nodiscard]] inline bool IsValidCcs(const SparseMatrixCCS &matrix) {
   if (matrix.rows < 0 || matrix.cols < 0) {
     return false;
   }
@@ -81,7 +81,7 @@ inline constexpr double kComplexEps = 1e-12;
   return true;
 }
 
-[[nodiscard]] inline SparseMatrixCCS NormalizeCcs(const SparseMatrixCCS& matrix, double eps = kComplexEps) {
+[[nodiscard]] inline SparseMatrixCCS NormalizeCcs(const SparseMatrixCCS &matrix, double eps = kComplexEps) {
   if (!IsValidCcs(matrix)) {
     return {};
   }
@@ -100,14 +100,13 @@ inline constexpr double kComplexEps = 1e-12;
       entries.emplace_back(matrix.row_ind[static_cast<std::size_t>(idx)], matrix.values[static_cast<std::size_t>(idx)]);
     }
 
-    std::sort(entries.begin(), entries.end(),
-              [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+    std::sort(entries.begin(), entries.end(), [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
 
     bool has_pending = false;
     int current_row = -1;
     Complex current_value{};
 
-    for (const auto& [row, value] : entries) {
+    for (const auto &[row, value] : entries) {
       if (!has_pending || row != current_row) {
         if (has_pending && !IsNearZero(current_value, eps)) {
           normalized.row_ind.push_back(current_row);
@@ -132,7 +131,7 @@ inline constexpr double kComplexEps = 1e-12;
   return normalized;
 }
 
-[[nodiscard]] inline std::vector<std::vector<Complex>> ToDense(const SparseMatrixCCS& matrix) {
+[[nodiscard]] inline std::vector<std::vector<Complex>> ToDense(const SparseMatrixCCS &matrix) {
   if (!IsValidCcs(matrix)) {
     return {};
   }
@@ -153,11 +152,12 @@ inline constexpr double kComplexEps = 1e-12;
   return dense;
 }
 
-[[nodiscard]] inline SparseMatrixCCS DenseToCcs(const std::vector<std::vector<Complex>>& dense, double eps = kComplexEps) {
+[[nodiscard]] inline SparseMatrixCCS DenseToCcs(const std::vector<std::vector<Complex>> &dense,
+                                                double eps = kComplexEps) {
   const int rows = static_cast<int>(dense.size());
   const int cols = rows == 0 ? 0 : static_cast<int>(dense.front().size());
 
-  for (const auto& row : dense) {
+  for (const auto &row : dense) {
     if (static_cast<int>(row.size()) != cols) {
       return {};
     }
@@ -167,7 +167,7 @@ inline constexpr double kComplexEps = 1e-12;
 
   for (int col = 0; col < cols; ++col) {
     for (int row = 0; row < rows; ++row) {
-      const Complex& value = dense[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)];
+      const Complex &value = dense[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)];
       if (!IsNearZero(value, eps)) {
         matrix.row_ind.push_back(row);
         matrix.values.push_back(value);
@@ -179,7 +179,7 @@ inline constexpr double kComplexEps = 1e-12;
   return matrix;
 }
 
-[[nodiscard]] inline SparseMatrixCCS MultiplyCcsReference(const SparseMatrixCCS& lhs, const SparseMatrixCCS& rhs,
+[[nodiscard]] inline SparseMatrixCCS MultiplyCcsReference(const SparseMatrixCCS &lhs, const SparseMatrixCCS &rhs,
                                                           double eps = kComplexEps) {
   if (!IsValidCcs(lhs) || !IsValidCcs(rhs) || lhs.cols != rhs.rows) {
     return {};
@@ -231,7 +231,8 @@ inline constexpr double kComplexEps = 1e-12;
   return result;
 }
 
-[[nodiscard]] inline bool AreMatricesEqual(const SparseMatrixCCS& lhs, const SparseMatrixCCS& rhs, double eps = kComplexEps) {
+[[nodiscard]] inline bool AreMatricesEqual(const SparseMatrixCCS &lhs, const SparseMatrixCCS &rhs,
+                                           double eps = kComplexEps) {
   if (!IsValidCcs(lhs) || !IsValidCcs(rhs)) {
     return false;
   }
@@ -260,7 +261,8 @@ inline constexpr double kComplexEps = 1e-12;
   return true;
 }
 
-[[nodiscard]] inline SparseMatrixCCS BuildDeterministicMatrix(int rows, int cols, int non_zero_per_col, int offset = 0) {
+[[nodiscard]] inline SparseMatrixCCS BuildDeterministicMatrix(int rows, int cols, int non_zero_per_col,
+                                                              int offset = 0) {
   if (rows < 0 || cols < 0 || non_zero_per_col < 0) {
     return {};
   }
@@ -282,14 +284,13 @@ inline constexpr double kComplexEps = 1e-12;
       entries.emplace_back(row, Complex(real, imag));
     }
 
-    std::sort(entries.begin(), entries.end(),
-              [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+    std::sort(entries.begin(), entries.end(), [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; });
 
     bool has_pending = false;
     int current_row = -1;
     Complex current_value{};
 
-    for (const auto& [row, value] : entries) {
+    for (const auto &[row, value] : entries) {
       if (!has_pending || row != current_row) {
         if (has_pending && !IsNearZero(current_value)) {
           matrix.row_ind.push_back(current_row);
