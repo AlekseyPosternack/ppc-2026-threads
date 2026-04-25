@@ -62,6 +62,17 @@ Point OrehovNJarvisPassTBB::FindNext(Point current) const {
     Body(Body &other, tbb::split /*unused*/)
         : current_val(other.current_val), input_ptr(other.input_ptr), best_point(other.best_point) {}
 
+    static bool IsBetter(Point current, Point candidate, Point current_best) {
+      double orient = CheckLeft(current, current_best, candidate);
+      if (orient > 0) {
+        return true;
+      }
+      if (orient == 0 && Distance(current, candidate) > Distance(current, current_best)) {
+        return true;
+      }
+      return false;
+    }
+
     void operator()(const tbb::blocked_range<size_t> &range) {
       const auto &input = *input_ptr;
       for (size_t i = range.begin(); i != range.end(); ++i) {
@@ -69,24 +80,20 @@ Point OrehovNJarvisPassTBB::FindNext(Point current) const {
         if (current_val == point) {
           continue;
         }
-
-        double orient = CheckLeft(current_val, best_point, point);
-
-        if (orient > 0) {
-          best_point = point;
-        } else if (orient == 0 && Distance(current_val, point) > Distance(current_val, best_point)) {
+        if (IsBetter(current_val, point, best_point)) {
           best_point = point;
         }
       }
     }
 
     void Join(const Body &other) {
-      double global_orient = CheckLeft(current_val, best_point, other.best_point);
-      if (global_orient > 0) {
-        best_point = other.best_point;
-      } else if (global_orient == 0 && Distance(current_val, other.best_point) > Distance(current_val, best_point)) {
+      if (IsBetter(current_val, other.best_point, best_point)) {
         best_point = other.best_point;
       }
+    }
+
+    void join(const Body &other) {
+      Join(other);
     }
   };
 
