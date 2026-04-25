@@ -50,51 +50,55 @@ bool OrehovNJarvisPassTBB::RunImpl() {
 
 Point OrehovNJarvisPassTBB::FindNext(Point current) const {
   const size_t n = input_.size();
-  const auto &input = input_;
 
   struct Body {
-    const Point &current;
-    const std::vector<Point> &input;
+    Point current_val;
+    const std::vector<Point> *input_ptr;
     Point best_point;
 
-    Body(const Point &c, const std::vector<Point> &in)
-        : current(c), input(in), best_point((current == in[0]) ? in[1] : in[0]) {}
+    Body(Point c, const std::vector<Point> *in)
+        : current_val(c), input_ptr(in), best_point((current_val == (*in)[0]) ? (*in)[1] : (*in)[0]) {}
 
-    Body(Body &other, tbb::split) : current(other.current), input(other.input), best_point(other.best_point) {}
+    Body(Body &other, tbb::split /*unused*/)
+        : current_val(other.current_val), input_ptr(other.input_ptr), best_point(other.best_point) {}
 
     void operator()(const tbb::blocked_range<size_t> &range) {
+      const auto &input = *input_ptr;
       for (size_t i = range.begin(); i != range.end(); ++i) {
         const Point &point = input[i];
-        if (current == point) {
+        if (current_val == point) {
           continue;
         }
 
-        double orient = OrehovNJarvisPassTBB::CheckLeft(current, best_point, point);
+        double orient = CheckLeft(current_val, best_point, point);
 
         if (orient > 0) {
           best_point = point;
         } else if (orient == 0) {
-          if (OrehovNJarvisPassTBB::Distance(current, point) > OrehovNJarvisPassTBB::Distance(current, best_point)) {
+          if (Distance(current_val, point) > Distance(current_val, best_point)) {
             best_point = point;
           }
         }
       }
     }
 
-    void join(const Body &other) {
-      double global_orient = OrehovNJarvisPassTBB::CheckLeft(current, best_point, other.best_point);
+    void Join(const Body &other) {
+      double global_orient = CheckLeft(current_val, best_point, other.best_point);
       if (global_orient > 0) {
         best_point = other.best_point;
       } else if (global_orient == 0) {
-        if (OrehovNJarvisPassTBB::Distance(current, other.best_point) >
-            OrehovNJarvisPassTBB::Distance(current, best_point)) {
+        if (Distance(current_val, other.best_point) > Distance(current_val, best_point)) {
           best_point = other.best_point;
         }
       }
     }
+
+    void join(const Body &other) {
+      Join(other);
+    }
   };
 
-  Body body(current, input);
+  Body body(current, &input_);
   tbb::parallel_reduce(tbb::blocked_range<size_t>(0, n), body);
 
   return body.best_point;
