@@ -35,8 +35,10 @@ bool IsValidCCS(const CCS &matrix) {
       return false;
     }
   }
-  if (std::any_of(matrix.row_ind.begin(), matrix.row_ind.end(), [&](int row) { return row < 0 || row >= matrix.m; })) {
-    return false;
+  for (int row : matrix.row_ind) {
+    if (row < 0 || row >= matrix.m) {
+      return false;
+    }
   }
   return true;
 }
@@ -49,7 +51,6 @@ SabutayASparseComplexCcsMultTBB::SabutayASparseComplexCcsMultTBB(const InType &i
   GetOutput() = CCS();
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void SabutayASparseComplexCcsMultTBB::SpMM(const CCS &a, const CCS &b, CCS &c) {
   c.m = a.m;
   c.n = b.n;
