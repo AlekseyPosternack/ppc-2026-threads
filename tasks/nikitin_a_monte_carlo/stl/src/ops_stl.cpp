@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <future>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include "nikitin_a_monte_carlo/common/include/common.hpp"
@@ -98,7 +99,6 @@ bool NikitinAMonteCarloSTL::PreProcessingImpl() {
 }
 
 bool NikitinAMonteCarloSTL::RunImpl() {
-  // Получаем входные данные и распаковываем их в обычные переменные
   const auto input = GetInput();
   const auto &lower_bounds = std::get<0>(input);
   const auto &upper_bounds = std::get<1>(input);
@@ -107,42 +107,40 @@ bool NikitinAMonteCarloSTL::RunImpl() {
 
   const std::size_t dim = lower_bounds.size();
 
-  // Вычисление объема области интегрирования
   double volume = 1.0;
   for (std::size_t i = 0; i < dim; ++i) {
     volume *= (upper_bounds[i] - lower_bounds[i]);
   }
 
-  // Определяем количество потоков (по умолчанию - аппаратные ядра)
   unsigned int num_threads = std::thread::hardware_concurrency();
   if (num_threads == 0) {
-    num_threads = 2U;  // fallback
+    num_threads = 2U;
   }
 
-  // Не создаем больше потоков, чем точек
-  const unsigned int unsigned_num_points = static_cast<unsigned int>(num_points);
-  if (num_threads > unsigned_num_points) {
-    num_threads = unsigned_num_points;
+  // Используем std::min вместо ручного сравнения
+  const auto unsigned_num_points = static_cast<unsigned int>(num_points);
+  num_threads = std::min(num_threads, unsigned_num_points);
+
+  if (num_threads == 0) {
+    num_threads = 1U;
   }
 
-  // Разбиваем работу на части
   std::vector<std::future<double>> futures;
-  const int points_per_thread = static_cast<int>(num_points / static_cast<int>(num_threads));
+  const int points_per_thread = num_points / static_cast<int>(num_threads);
   const int remainder = num_points % static_cast<int>(num_threads);
 
   int current_start = 0;
 
   for (unsigned int thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
     const int start = current_start;
-    const int end = start + points_per_thread + ((static_cast<int>(thread_idx) < remainder) ? 1 : 0);
+    const int thread_idx_signed = static_cast<int>(thread_idx);
+    const int end = start + points_per_thread + ((thread_idx_signed < remainder) ? 1 : 0);
     current_start = end;
 
-    // Запускаем асинхронное вычисление
-    futures.push_back(std::async(std::launch::async, ComputePartialSum, start, end, dim, std::cref(lower_bounds),
-                                 std::cref(upper_bounds), func_type));
+    futures.push_back(
+        std::async(std::launch::async, ComputePartialSum, start, end, dim, lower_bounds, upper_bounds, func_type));
   }
 
-  // Собираем результаты
   double sum = 0.0;
   for (auto &future : futures) {
     sum += future.get();
