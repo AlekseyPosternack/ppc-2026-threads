@@ -6,21 +6,19 @@
 #include <tuple>
 #include <vector>
 
-#include "sabutay_sparse_complex_ccs_mult_tbb/common/include/common.hpp"
-#include "sabutay_sparse_complex_ccs_mult_tbb/tbb/include/ops_tbb.hpp"
+#include "../../common/include/common.hpp"
+#include "../../tbb/include/ops_tbb.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace sabutay_sparse_complex_ccs_mult_tbb {
 
 namespace {
 
-// Helper function to create a random sparse matrix
 CCS CreateRandomSparseMatrix(int rows, int cols, double density = 0.1) {
   CCS matrix;
   matrix.m = rows;
   matrix.n = cols;
 
-  // Initialize col_ptr with zeros
   matrix.col_ptr.assign(cols + 1, 0);
 
   std::random_device rd;
@@ -54,18 +52,15 @@ CCS CreateRandomSparseMatrix(int rows, int cols, double density = 0.1) {
 class SabutayARunPerfTestsTbb : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    // Create test matrices with appropriate sizes for performance testing
-    matrix_a_ = CreateRandomSparseMatrix(100, 100, 0.05);  // 5% density
-    matrix_b_ = CreateRandomSparseMatrix(100, 100, 0.05);  // 5% density
+    matrix_a_ = CreateRandomSparseMatrix(100, 100, 0.05);
+    matrix_b_ = CreateRandomSparseMatrix(100, 100, 0.05);
     input_data_ = std::make_tuple(matrix_a_, matrix_b_);
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    // For performance tests, we just need to verify the output has the correct dimensions
     const CCS &a = std::get<0>(input_data_);
     const CCS &b = std::get<1>(input_data_);
 
-    // Check that the result matrix has the correct dimensions
     return (output_data.m == a.m) && (output_data.n == b.n);
   }
 

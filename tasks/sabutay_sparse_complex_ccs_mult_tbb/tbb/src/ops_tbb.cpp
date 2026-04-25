@@ -1,7 +1,5 @@
 #include "../include/ops_tbb.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <complex>
 #include <cstddef>
 #include <vector>

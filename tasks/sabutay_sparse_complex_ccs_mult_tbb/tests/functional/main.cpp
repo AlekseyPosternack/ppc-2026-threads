@@ -16,7 +16,6 @@
 
 namespace sabutay_sparse_complex_ccs_mult_tbb {
 
-// Constants for test values
 constexpr double kZero = 0.0;
 constexpr double kValue1 = 1.0;
 constexpr double kValue2 = 2.0;
@@ -164,5 +163,4 @@ const auto kPerfTestName = SabutayARunFuncTestsTbb::PrintFuncTestName<SabutayARu
 INSTANTIATE_TEST_SUITE_P(RunFuncCCSTest, SabutayARunFuncTestsTbb, kGtestValues, kPerfTestName);
 
 }  // namespace
-
 }  // namespace sabutay_sparse_complex_ccs_mult_tbb
