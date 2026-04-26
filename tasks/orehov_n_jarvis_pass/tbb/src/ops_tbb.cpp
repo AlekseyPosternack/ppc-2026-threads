@@ -10,6 +10,34 @@
 
 namespace orehov_n_jarvis_pass {
 
+namespace {
+
+struct BestState {
+  Point point;
+  bool valid = false;
+};
+
+bool IsBetterPoint(Point current, Point candidate, Point best) {
+  double orient = OrehovNJarvisPassTBB::CheckLeft(current, best, candidate);
+  if (orient > 0.0) {
+    return true;
+  }
+  if (orient == 0.0) {
+    double dx_c = candidate.x - current.x;
+    double dy_c = candidate.y - current.y;
+    double dist_c = dx_c * dx_c + dy_c * dy_c;
+
+    double dx_b = best.x - current.x;
+    double dy_b = best.y - current.y;
+    double dist_b = dx_b * dx_b + dy_b * dy_b;
+
+    return dist_c > dist_b;
+  }
+  return false;
+}
+
+}  // namespace
+
 OrehovNJarvisPassTBB::OrehovNJarvisPassTBB(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -51,34 +79,44 @@ bool OrehovNJarvisPassTBB::RunImpl() {
 Point OrehovNJarvisPassTBB::FindNext(Point current) const {
   const size_t n = input_.size();
 
-  tbb::combinable<Point> best_point([&]() { return (current == input_[0]) ? input_[1] : input_[0]; });
+  BestState init;
+  for (size_t i = 0; i < n; ++i) {
+    if (!(input_[i] == current)) {
+      init.point = input_[i];
+      init.valid = true;
+      break;
+    }
+  }
+  if (!init.valid) {
+    return current;
+  }
 
-  tbb::parallel_for(tbb::blocked_range<size_t>(0, n), [&](const tbb::blocked_range<size_t> &range) {
-    for (size_t i = range.begin(); i != range.end(); ++i) {
-      const Point &point = input_[i];
-      if (current == point) {
+  auto body = [&](const tbb::blocked_range<size_t> &r, BestState local) -> BestState {
+    for (size_t i = r.begin(); i != r.end(); ++i) {
+      const Point &p = input_[i];
+      if (p == current) {
         continue;
       }
-      Point &local_best = best_point.local();
-      double orient = CheckLeft(current, local_best, point);
-      if (orient > 0) {
-        local_best = point;
-      } else if (orient == 0 && Distance(current, point) > Distance(current, local_best)) {
-        local_best = point;
+      if (!local.valid || IsBetterPoint(current, p, local.point)) {
+        local.point = p;
+        local.valid = true;
       }
     }
-  });
+    return local;
+  };
 
-  return best_point.combine([&](Point a, Point b) {
-    double orient = CheckLeft(current, a, b);
-    if (orient > 0) {
+  auto reduce = [&](const BestState &a, const BestState &b) -> BestState {
+    if (!a.valid) {
       return b;
     }
-    if (orient == 0 && Distance(current, b) > Distance(current, a)) {
-      return b;
+    if (!b.valid) {
+      return a;
     }
-    return a;
-  });
+    return BestState{IsBetterPoint(current, b.point, a.point) ? b.point : a.point, true};
+  };
+
+  BestState result = tbb::parallel_reduce(tbb::blocked_range<size_t>(0, n), init, body, reduce);
+  return result.point;
 }
 
 double OrehovNJarvisPassTBB::CheckLeft(Point a, Point b, Point c) {

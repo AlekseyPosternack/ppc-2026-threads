@@ -14,15 +14,16 @@ class OrehovNJarvisPassTBB : public BaseTask {
   }
   explicit OrehovNJarvisPassTBB(const InType &in);
 
+  [[nodiscard]] static double CheckLeft(Point a, Point b, Point c);
+  [[nodiscard]] static double Distance(Point a, Point b);
+
  private:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  [[nodiscard]] static double CheckLeft(Point a, Point b, Point c);
   [[nodiscard]] Point FindFirstElem() const;
-  [[nodiscard]] static double Distance(Point a, Point b);
   [[nodiscard]] Point FindNext(Point current) const;
 
   std::vector<Point> res_;
