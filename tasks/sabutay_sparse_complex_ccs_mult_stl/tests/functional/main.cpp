@@ -1,14 +1,10 @@
 #include <gtest/gtest.h>
-#include <stb/stb_image.h>
 
 #include <algorithm>
 #include <array>
-#include <cstddef>
-#include <cstdint>
-#include <numeric>
-#include <stdexcept>
+#include <cmath>
+#include <complex>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -19,71 +15,153 @@
 
 namespace sabutay_sparse_complex_ccs_mult_stl {
 
-class SabutayARunFuncTestsThreadsSTL : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+constexpr double kZero = 0.0;
+constexpr double kValue1 = 1.0;
+constexpr double kValue2 = 2.0;
+constexpr double kValue3 = 3.0;
+constexpr double kValue4 = 4.0;
+constexpr double kValue5 = 5.0;
+constexpr double kValue6 = 6.0;
+constexpr double kValue12 = 12.0;
+constexpr double kValue19 = 19.0;
+
+class SabutayRunFuncTestsStl : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
-  static std::string PrintTestParam(const TestType &test_param) {
-    return std::to_string(std::get<0>(test_param)) + "_" + std::get<1>(test_param);
+  static auto PrintTestParam(const TestType &test_param) -> std::string {
+    return std::to_string(test_param);
   }
 
  protected:
   void SetUp() override {
-    int width = -1;
-    int height = -1;
-    int channels = -1;
-    std::vector<uint8_t> img;
-    // Read image in RGB to ensure consistent channel count
-    {
-      std::string abs_path =
-          ppc::util::GetAbsoluteTaskPath(std::string(PPC_ID_sabutay_sparse_complex_ccs_mult_stl), "pic.ppm");
-      auto *data = stbi_load(abs_path.c_str(), &width, &height, &channels, STBI_rgb);
-      if (data == nullptr) {
-        throw std::runtime_error("Failed to load image: " + std::string(stbi_failure_reason()));
-      }
-      channels = STBI_rgb;
-      img = std::vector<uint8_t>(data, data + (static_cast<ptrdiff_t>(width * height * channels)));
-      stbi_image_free(data);
-      if (std::cmp_not_equal(width, height)) {
-        throw std::runtime_error("width != height: ");
+    const TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
+    CCS &a = std::get<0>(input_data_);
+    CCS &b = std::get<1>(input_data_);
+    CCS &c = test_result_;
+
+    if (params == 0) {
+      a.m = 2;
+      a.n = 3;
+      a.col_ptr = {0, 1, 2, 3};
+      a.row_ind = {0, 1, 0};
+      a.values = {{kValue1, kZero}, {kValue2, kZero}, {kValue3, kZero}};
+
+      b.m = 3;
+      b.n = 2;
+      b.col_ptr = {0, 2, 3};
+      b.row_ind = {0, 2, 1};
+      b.values = {{kValue4, kZero}, {kValue5, kZero}, {kValue6, kZero}};
+
+      c.m = 2;
+      c.n = 2;
+      c.col_ptr = {0, 1, 2};
+      c.row_ind = {0, 1};
+      c.values = {{kValue19, kZero}, {kValue12, kZero}};
+    }
+    if (params == 1) {
+      a.m = 2;
+      a.n = 2;
+      a.col_ptr = {0, 1, 2};
+      a.row_ind = {0, 1};
+      a.values = {{kValue1, kZero}, {kValue2, kZero}};
+
+      b.m = 2;
+      b.n = 2;
+      b.col_ptr = {0, 1, 2};
+      b.row_ind = {1, 0};
+      b.values = {{kValue3, kZero}, {kValue4, kZero}};
+
+      c.m = 2;
+      c.n = 2;
+      c.col_ptr = {0, 1, 2};
+      c.row_ind = {1, 0};
+      c.values = {{kValue6, kZero}, {kValue4, kZero}};
+    }
+    if (params == 2) {
+      a.m = 1;
+      a.n = 1;
+      a.col_ptr = {0, 1};
+      a.row_ind = {0};
+      a.values = {{kValue2, kValue1}};
+
+      b.m = 1;
+      b.n = 1;
+      b.col_ptr = {0, 1};
+      b.row_ind = {0};
+      b.values = {{kValue1, kValue1}};
+
+      c.m = 1;
+      c.n = 1;
+      c.col_ptr = {0, 1};
+      c.row_ind = {0};
+      c.values = {{kValue1, kValue3}};
+    }
+  }
+
+  bool CheckTestOutputData(OutType &output_data) override {
+    constexpr double kEps = 1e-14;
+    if (test_result_.m != output_data.m || test_result_.n != output_data.n ||
+        test_result_.col_ptr.size() != output_data.col_ptr.size() ||
+        test_result_.row_ind.size() != output_data.row_ind.size() ||
+        test_result_.values.size() != output_data.values.size()) {
+      return false;
+    }
+
+    for (std::size_t i = 0; i < test_result_.col_ptr.size(); ++i) {
+      if (test_result_.col_ptr[i] != output_data.col_ptr[i]) {
+        return false;
       }
     }
 
-    TestType params = std::get<static_cast<std::size_t>(ppc::util::GTestParamIndex::kTestParams)>(GetParam());
-    input_data_ = width - height + std::min(std::accumulate(img.begin(), img.end(), 0), channels);
+    for (int j = 0; j < test_result_.n; ++j) {
+      std::vector<std::pair<int, std::complex<double>>> expected;
+      std::vector<std::pair<int, std::complex<double>>> actual;
+
+      for (int k = 0; k < test_result_.col_ptr[j + 1] - test_result_.col_ptr[j]; ++k) {
+        expected.emplace_back(test_result_.row_ind[test_result_.col_ptr[j] + k],
+                              test_result_.values[test_result_.col_ptr[j] + k]);
+        actual.emplace_back(output_data.row_ind[test_result_.col_ptr[j] + k],
+                            output_data.values[test_result_.col_ptr[j] + k]);
+      }
+
+      auto cmp = [](const auto &lhs, const auto &rhs) { return lhs.first < rhs.first; };
+      std::ranges::sort(expected, cmp);
+      std::ranges::sort(actual, cmp);
+
+      for (std::size_t i = 0; i < expected.size(); ++i) {
+        if (expected[i].first != actual[i].first || std::abs(expected[i].second - actual[i].second) > kEps) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
-  bool CheckTestOutputData(OutType &output_data) final {
-    return (input_data_ == output_data);
-  }
-
-  InType GetTestInputData() final {
+  InType GetTestInputData() override {
     return input_data_;
   }
 
  private:
-  InType input_data_ = 0;
+  InType input_data_;
+  OutType test_result_;
 };
 
 namespace {
 
-TEST_P(SabutayARunFuncTestsThreadsSTL, MatmulFromPic) {
+TEST_P(SabutayRunFuncTestsStl, FuncCCSTest) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 3> kTestParam = {std::make_tuple(3, "3"), std::make_tuple(5, "5"), std::make_tuple(7, "7")};
+const std::array<TestType, 3> kTestParam = {0, 1, 2};
 
-const auto kTestTasksList = std::tuple_cat(
-    ppc::util::AddFuncTask<NesterovATestTaskALL, InType>(kTestParam, PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_stl),
-    ppc::util::AddFuncTask<NesterovATestTaskOMP, InType>(kTestParam, PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_stl),
-    ppc::util::AddFuncTask<NesterovATestTaskSEQ, InType>(kTestParam, PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_stl),
-    ppc::util::AddFuncTask<SabutaySparseComplexCcsMultSTL, InType>(kTestParam,
-                                                                   PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_stl),
-    ppc::util::AddFuncTask<NesterovATestTaskTBB, InType>(kTestParam, PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_stl));
+const auto kTestTasksList = ppc::util::AddFuncTask<SabutaySparseComplexCcsMultSTL, InType>(
+    kTestParam, PPC_SETTINGS_sabutay_sparse_complex_ccs_mult_stl);
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName = SabutayARunFuncTestsThreadsSTL::PrintFuncTestName<SabutayARunFuncTestsThreadsSTL>;
+const auto kPerfTestName = SabutayRunFuncTestsStl::PrintFuncTestName<SabutayRunFuncTestsStl>;
 
-INSTANTIATE_TEST_SUITE_P(PicMatrixTests, SabutayARunFuncTestsThreadsSTL, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(RunFuncCCSTest, SabutayRunFuncTestsStl, kGtestValues, kPerfTestName);
 
 }  // namespace
 

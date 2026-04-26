@@ -11,6 +11,7 @@ class SabutaySparseComplexCcsMultSTL : public BaseTask {
     return ppc::task::TypeOfTask::kSTL;
   }
   explicit SabutaySparseComplexCcsMultSTL(const InType &in);
+  static void SpMM(const CCS &a, const CCS &b, CCS &c);
 
  private:
   bool ValidationImpl() override;
