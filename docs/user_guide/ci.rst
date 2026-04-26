@@ -101,9 +101,6 @@ clang-tidy (static analysis):
 .. code-block:: bash
 
    # Configure with compile_commands.json
-   # On Windows, use a Ninja+MSVC configure (run from a VS Developer / vcvars
-   # environment) so ``cl`` is on PATH. With ``CMAKE_EXPORT_COMPILE_COMMANDS``,
-   # PPC disables Ninja response files so ``compile_commands.json`` is emitted.
    cmake -S . -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_EXPORT_COMPILE_COMMANDS=ON
    cmake --build build -j
 

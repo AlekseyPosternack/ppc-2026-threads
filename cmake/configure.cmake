@@ -13,18 +13,6 @@ if(WIN32 AND CMAKE_GENERATOR MATCHES "Ninja")
   set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_LIBRARIES
       ON
       CACHE BOOL "Use response files for libraries" FORCE)
-  # When exporting compile_commands.json, the database must list the real
-  # compiler invocation. With MSVC, Ninja + response files otherwise omit
-  # compile_commands generation on Windows, which breaks clang-tidy -p and IDE
-  # integration.
-  if(CMAKE_EXPORT_COMPILE_COMMANDS)
-    set(CMAKE_NINJA_FORCE_RESPONSE_FILE
-        OFF
-        CACHE BOOL "Force Ninja to use response files" FORCE)
-    set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES
-        OFF
-        CACHE BOOL "Use response files for includes" FORCE)
-  endif()
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
