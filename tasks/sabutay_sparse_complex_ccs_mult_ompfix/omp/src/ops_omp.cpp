@@ -14,8 +14,6 @@
 namespace sabutay_sparse_complex_ccs_mult_ompfix {
 namespace {
 
-// Align with functional tests: tiny residuals from complex multiply can exceed 1e-14
-// on some platforms (libc++/OpenMP); dropping slightly larger noise avoids false failures.
 constexpr double kDropMagnitude = 1e-12;
 
 auto IsValidStructure(const CCS &matrix) -> bool {
@@ -166,7 +164,6 @@ bool SabutaySparseComplexCcsMultOmpFix::RunImpl() {
 }
 
 bool SabutaySparseComplexCcsMultOmpFix::PostProcessingImpl() {
-  // Match sabutay_sparse_complex_ccs_multfix SEQ: output is checked by functional tests.
   return true;
 }
 
