@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "otcheskov_s_contrast_lin_stretch/common/include/common.hpp"
+#include "util/include/util.hpp"
 
 namespace otcheskov_s_contrast_lin_stretch {
 
@@ -45,34 +46,36 @@ bool OtcheskovSContrastLinStretchALL::RunImpl() {
 
   const InType &input = GetInput();
   OutType &output = GetOutput();
-  size_t global_size = 0;
+  int global_size = 0;
   if (rank_ == 0) {
-    global_size = input.size();
+    global_size = static_cast<int>(input.size());
   }
-  MPI_Bcast(&global_size, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   // --- 1. Разделение данных ---
-  std::vector<int> counts(size_), displs(size_);
+  std::vector<int> counts(size_);
+  std::vector<int> displs(size_);
   int base = global_size / size_;
   int rem = global_size % size_;
 
   for (int i = 0; i < size_; ++i) {
     counts[i] = base + (i < rem ? 1 : 0);
-    displs[i] = i * base + std::min(i, rem);
+    displs[i] = (i * base) + std::min(i, rem);
   }
-  size_t local_size = static_cast<size_t>(counts[rank_]);
+  auto local_size = static_cast<size_t>(counts[rank_]);
   std::vector<uint8_t> local_input(local_size);
   std::vector<uint8_t> local_output(local_size);
 
   // --- 2. Scatter ---
   MPI_Scatterv(rank_ == 0 ? input.data() : nullptr, counts.data(), displs.data(), MPI_UINT8_T, local_input.data(),
-               local_size, MPI_UINT8_T, 0, MPI_COMM_WORLD);
+               static_cast<int>(local_size), MPI_UINT8_T, 0, MPI_COMM_WORLD);
 
   // --- 3. Локальный min/max  ---
   MinMax local = ComputeMinMax(local_input);
 
   // --- 4. Глобальный min/max ---
-  uint8_t global_min, global_max;
+  uint8_t global_min{};
+  uint8_t global_max{};
 
   MPI_Allreduce(&local.min, &global_min, 1, MPI_UINT8_T, MPI_MIN, MPI_COMM_WORLD);
   MPI_Allreduce(&local.max, &global_max, 1, MPI_UINT8_T, MPI_MAX, MPI_COMM_WORLD);
@@ -88,8 +91,8 @@ bool OtcheskovSContrastLinStretchALL::RunImpl() {
   }
 
   // --- 6. Сбор ---
-  MPI_Gatherv(local_output.data(), local_size, MPI_UINT8_T, rank_ == 0 ? output.data() : nullptr, counts.data(),
-              displs.data(), MPI_UINT8_T, 0, MPI_COMM_WORLD);
+  MPI_Gatherv(local_output.data(), static_cast<int>(local_size), MPI_UINT8_T, rank_ == 0 ? output.data() : nullptr,
+              counts.data(), displs.data(), MPI_UINT8_T, 0, MPI_COMM_WORLD);
   return true;
 }
 

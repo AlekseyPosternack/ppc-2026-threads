@@ -14,6 +14,7 @@
 #include "otcheskov_s_contrast_lin_stretch/stl/include/ops_stl.hpp"
 #include "otcheskov_s_contrast_lin_stretch/tbb/include/ops_tbb.hpp"
 #include "util/include/perf_test_util.hpp"
+#include "util/include/util.hpp"
 
 namespace otcheskov_s_contrast_lin_stretch {
 namespace {

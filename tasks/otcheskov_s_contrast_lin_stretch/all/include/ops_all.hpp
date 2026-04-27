@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "otcheskov_s_contrast_lin_stretch/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -13,7 +15,8 @@ class OtcheskovSContrastLinStretchALL : public BaseTask {
   explicit OtcheskovSContrastLinStretchALL(const InType &in);
 
  private:
-  int rank_, size_;
+  int rank_{};
+  int size_{};
   bool is_valid_;
   struct MinMax {
     uint8_t min{255};
