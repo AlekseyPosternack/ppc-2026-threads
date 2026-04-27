@@ -16,11 +16,6 @@ runs:
       with:
         windows_compile_environment: msvc
     - name: Setup ninja
-      shell: pwsh
-      run: |
-        if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
-          choco install ninja -y --no-progress
-        }
-        ninja --version
+      uses: seanmiddleditch/gha-setup-ninja@v6
     - name: Setup MSVC for Ninja again
       uses: ilammy/msvc-dev-cmd@v1
