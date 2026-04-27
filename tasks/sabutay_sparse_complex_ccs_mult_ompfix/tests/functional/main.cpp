@@ -137,7 +137,7 @@ bool CcsEqualsDenseView(const CCS &got, const Dense &ref) {
 
 }  // namespace
 
-class SabutayARunFuncTestsThreadsFIX : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
+class SabutayARunFuncTestsThreadsOMPFIX : public ppc::util::BaseRunFuncTests<InType, OutType, TestType> {
  public:
   static auto PrintTestParam(const TestType &id) -> std::string {
     return std::to_string(id);
@@ -206,7 +206,7 @@ class SabutayARunFuncTestsThreadsFIX : public ppc::util::BaseRunFuncTests<InType
 
 namespace {
 
-TEST_P(SabutayARunFuncTestsThreadsFIX, MatmulFromPic) {
+TEST_P(SabutayARunFuncTestsThreadsOMPFIX, MatmulFromPic) {
   ExecuteTest(GetParam());
 }
 
@@ -217,9 +217,9 @@ const auto kTestTasksList = ppc::util::AddFuncTask<SabutaySparseComplexCcsMultOm
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 
-const auto kPerfTestName = SabutayARunFuncTestsThreadsFIX::PrintFuncTestName<SabutayARunFuncTestsThreadsFIX>;
+const auto kPerfTestName = SabutayARunFuncTestsThreadsOMPFIX::PrintFuncTestName<SabutayARunFuncTestsThreadsOMPFIX>;
 
-INSTANTIATE_TEST_SUITE_P(PicMatrixTests, SabutayARunFuncTestsThreadsFIX, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(PicMatrixTests, SabutayARunFuncTestsThreadsOMPFIX, kGtestValues, kPerfTestName);
 
 }  // namespace
 
