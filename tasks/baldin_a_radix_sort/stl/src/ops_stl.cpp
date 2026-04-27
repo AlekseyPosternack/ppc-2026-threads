@@ -102,6 +102,7 @@ bool BaldinARadixSortSTL::RunImpl() {
   offsets[num_chunks] = n;
 
   std::vector<std::future<void>> futures;
+  futures.reserve(num_chunks);
 
   for (int tid = 0; tid < num_chunks; ++tid) {
     futures.push_back(std::async(std::launch::async, [tid, &out, &offsets]() {
@@ -119,6 +120,7 @@ bool BaldinARadixSortSTL::RunImpl() {
     int num_merges = (num_chunks + (2 * step) - 1) / (2 * step);
 
     std::vector<std::future<void>> merge_futures;
+    merge_futures.reserve(num_merges);
 
     for (int m_idx = 0; m_idx < num_merges; ++m_idx) {
       merge_futures.push_back(std::async(std::launch::async, [m_idx, step, num_chunks, &out, &offsets]() {
