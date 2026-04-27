@@ -86,30 +86,15 @@ void VasilievMShellSortBatcherMergeSTL::ShellSort(std::vector<ValType> &vec, std
   const size_t base = chunk_count / worker_count;
   const size_t rem = chunk_count % worker_count;
   size_t current = 0;
-
-  for (size_t t = 0; t < worker_count; t++) {
-    const size_t count = base + (t < rem ? 1 : 0);
+  for (size_t thread_id = 0; thread_id < worker_count; thread_id++) {
+    const size_t count = base + (thread_id < rem ? 1 : 0);
     const size_t begin = current;
     const size_t end = current + count;
     current = end;
 
     threads.emplace_back([&, begin, end]() {
       for (size_t chunk = begin; chunk < end; chunk++) {
-        size_t first = bounds[chunk];
-        size_t last = bounds[chunk + 1];
-        size_t n = last - first;
-
-        for (size_t gap = n / 2; gap > 0; gap /= 2) {
-          for (size_t i = first + gap; i < last; i++) {
-            ValType tmp = vec[i];
-            size_t j = i;
-            while (j >= first + gap && vec[j - gap] > tmp) {
-              vec[j] = vec[j - gap];
-              j -= gap;
-            }
-            vec[j] = tmp;
-          }
-        }
+        ShellSortChunk(vec, bounds[chunk], bounds[chunk + 1]);
       }
     });
   }
@@ -132,8 +117,8 @@ void VasilievMShellSortBatcherMergeSTL::CycleMerge(std::vector<ValType> &vec, st
   const size_t base = merge_count / worker_count;
   const size_t rem = merge_count % worker_count;
   size_t current = 0;
-  for (size_t t = 0; t < worker_count; t++) {
-    const size_t count = base + (t < rem ? 1 : 0);
+  for (size_t thread_id = 0; thread_id < worker_count; thread_id++) {
+    const size_t count = base + (thread_id < rem ? 1 : 0);
     const size_t begin = current;
     const size_t end = current + count;
     current = end;
@@ -142,21 +127,26 @@ void VasilievMShellSortBatcherMergeSTL::CycleMerge(std::vector<ValType> &vec, st
       for (size_t idx = begin; idx < end; idx++) {
         const size_t l = idx * 2 * size;
         const size_t mid = std::min(l + size, chunk_count);
-        const size_t r = std::min(l + 2 * size, chunk_count);
+        const size_t r = std::min(l + (2 * size), chunk_count);
 
         const size_t start = bounds[l];
         const size_t middle = bounds[mid];
         const size_t end_pos = bounds[r];
 
         if (mid == r) {
-          std::copy(vec.begin() + start, vec.begin() + end_pos, buffer.begin() + start);
+          std::copy(vec.begin() + static_cast<std::ptrdiff_t>(start),
+                    vec.begin() + static_cast<std::ptrdiff_t>(end_pos),
+                    buffer.begin() + static_cast<std::ptrdiff_t>(start));
         } else {
-          std::vector<ValType> l_vect(vec.begin() + start, vec.begin() + middle);
-          std::vector<ValType> r_vect(vec.begin() + middle, vec.begin() + end_pos);
+          std::vector<ValType> l_vect(vec.begin() + static_cast<std::ptrdiff_t>(start),
+                                      vec.begin() + static_cast<std::ptrdiff_t>(middle));
+          std::vector<ValType> r_vect(vec.begin() + static_cast<std::ptrdiff_t>(middle),
+                                      vec.begin() + static_cast<std::ptrdiff_t>(end_pos));
 
           std::vector<ValType> merged = BatcherMerge(l_vect, r_vect);
-
-          std::copy(merged.begin(), merged.end(), buffer.begin() + start);
+          for (size_t i = 0; i < merged.size(); i++) {
+            buffer[start + i] = merged[i];
+          }
         }
       }
     });
@@ -236,6 +226,22 @@ std::vector<ValType> VasilievMShellSortBatcherMergeSTL::Merge(std::vector<ValTyp
   }
 
   return merged;
+}
+
+void VasilievMShellSortBatcherMergeSTL::ShellSortChunk(std::vector<ValType> &vec, size_t first, size_t last) {
+  size_t n = last - first;
+
+  for (size_t gap = n / 2; gap > 0; gap /= 2) {
+    for (size_t i = first + gap; i < last; i++) {
+      ValType tmp = vec[i];
+      size_t j = i;
+      while (j >= first + gap && vec[j - gap] > tmp) {
+        vec[j] = vec[j - gap];
+        j -= gap;
+      }
+      vec[j] = tmp;
+    }
+  }
 }
 
 }  // namespace vasiliev_m_shell_sort_batcher_merge

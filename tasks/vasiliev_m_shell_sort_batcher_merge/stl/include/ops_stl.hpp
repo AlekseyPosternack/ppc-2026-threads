@@ -21,6 +21,7 @@ class VasilievMShellSortBatcherMergeSTL : public BaseTask {
   static std::vector<ValType> BatcherMerge(std::vector<ValType> &l, std::vector<ValType> &r);
   static void SplitEvenOdd(std::vector<ValType> &vec, std::vector<ValType> &even, std::vector<ValType> &odd);
   static std::vector<ValType> Merge(std::vector<ValType> &a, std::vector<ValType> &b);
+  static void ShellSortChunk(std::vector<ValType> &vec, size_t first, size_t last);
 
  private:
   bool ValidationImpl() override;
