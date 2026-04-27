@@ -23,13 +23,15 @@ bool LukinITestTaskSTL::PreProcessingImpl() {
 }
 
 bool LukinITestTaskSTL::RunImpl() {
-  size = static_cast<int>(input.size());
+  const InType &input = GetInput();
 
-  thread_count = static_cast<int>(std::thread::hardware_concurrency());
-  chunk_size = static_cast<int>(input.size()) / thread_count;
+  size_ = static_cast<int>(input.size());
 
-  std::vector<unsigned char> loc_mins(thread_count, 255);
-  std::vector<unsigned char> loc_maxs(thread_count, 0);
+  thread_count_ = static_cast<int>(std::thread::hardware_concurrency());
+  chunk_size_ = static_cast<int>(input.size()) / thread_count_;
+
+  std::vector<unsigned char> loc_mins(thread_count_, 255);
+  std::vector<unsigned char> loc_maxs(thread_count_, 0);
 
   GetLocMinMax(loc_mins, loc_maxs);
 
@@ -51,8 +53,10 @@ bool LukinITestTaskSTL::PostProcessingImpl() {
 }
 
 void LukinITestTaskSTL::GetLocMinMax(std::vector<unsigned char> &loc_mins, std::vector<unsigned char> &loc_maxs) {
+  const InType &input = GetInput();
+
   std::vector<std::thread> thread_pool;
-  thread_pool.reserve(thread_count);
+  thread_pool.reserve(thread_count_);
 
   auto reduction = [&](const int idx, const int start, const int end) {
     unsigned char loc_min = loc_mins[idx];
@@ -67,9 +71,9 @@ void LukinITestTaskSTL::GetLocMinMax(std::vector<unsigned char> &loc_mins, std::
     loc_maxs[idx] = loc_max;
   };
 
-  for (int i = 0; i < thread_count; i++) {
-    const int start = chunk_size * i;
-    const int end = (i == (thread_count - 1)) ? size : start + chunk_size;
+  for (int i = 0; i < thread_count_; i++) {
+    const int start = chunk_size_ * i;
+    const int end = (i == (thread_count_ - 1)) ? size_ : start + chunk_size_;
     thread_pool.emplace_back(reduction, i, start, end);
   }
   for (auto &thread : thread_pool) {
@@ -77,7 +81,10 @@ void LukinITestTaskSTL::GetLocMinMax(std::vector<unsigned char> &loc_mins, std::
   }
 }
 
-void LukinITestTaskSTL::Process(const int min, const int max) {
+void LukinITestTaskSTL::Process(int min, int max) {
+  const InType &input = GetInput();
+  OutType &output = GetOutput();
+
   const float scale = 255.0F / static_cast<float>(max - min);
 
   auto process = [&](const int start, const int end) {
@@ -87,11 +94,11 @@ void LukinITestTaskSTL::Process(const int min, const int max) {
   };
 
   std::vector<std::thread> thread_pool;
-  thread_pool.reserve(thread_count);
+  thread_pool.reserve(thread_count_);
 
-  for (int i = 0; i < thread_count; i++) {
-    const int start = chunk_size * i;
-    const int end = (i == (thread_count - 1)) ? size : start + chunk_size;
+  for (int i = 0; i < thread_count_; i++) {
+    const int start = chunk_size_ * i;
+    const int end = (i == (thread_count_ - 1)) ? size_ : start + chunk_size_;
     thread_pool.emplace_back(process, start, end);
   }
   for (auto &thread : thread_pool) {
