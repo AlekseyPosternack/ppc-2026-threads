@@ -9,6 +9,7 @@
 
 #include "oneapi/tbb/blocked_range.h"
 #include "oneapi/tbb/parallel_for.h"
+#include "sabutay_sparse_complex_ccs_mult_tbb/common/include/common.hpp"
 
 namespace sabutay_sparse_complex_ccs_mult_tbb {
 
