@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "dergynov_s_integrals_multistep_rectangle/all/include/ops_all.hpp"
 #include "dergynov_s_integrals_multistep_rectangle/common/include/common.hpp"
 #include "dergynov_s_integrals_multistep_rectangle/omp/include/ops_omp.hpp"
 #include "dergynov_s_integrals_multistep_rectangle/seq/include/ops_seq.hpp"
@@ -49,7 +50,7 @@ namespace {
 const auto kAllPerfTasks =
     ppc::util::MakeAllPerfTasks<InType, DergynovSIntegralsMultistepRectangleSEQ,
                                 DergynovSIntegralsMultistepRectangleOMP, DergynovSIntegralsMultistepRectangleTBB,
-                                DergynovSIntegralsMultistepRectangleSTL>(
+                                DergynovSIntegralsMultistepRectangleSTL, DergynovSIntegralsMultistepRectangleALL>(
         PPC_SETTINGS_dergynov_s_integrals_multistep_rectangle);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
