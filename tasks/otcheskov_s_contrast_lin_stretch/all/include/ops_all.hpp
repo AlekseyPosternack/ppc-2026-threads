@@ -17,7 +17,7 @@ class OtcheskovSContrastLinStretchALL : public BaseTask {
  private:
   int rank_{};
   int size_{};
-  bool is_valid_;
+  bool is_valid_{};
   struct MinMax {
     uint8_t min{255};
     uint8_t max{0};
