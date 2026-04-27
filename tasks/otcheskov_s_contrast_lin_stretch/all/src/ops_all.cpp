@@ -101,6 +101,9 @@ bool OtcheskovSContrastLinStretchALL::PostProcessingImpl() {
 }
 
 OtcheskovSContrastLinStretchALL::MinMax OtcheskovSContrastLinStretchALL::ComputeMinMax(const InType &input) {
+  if (input.empty()) {
+    return MinMax{};
+  }
   const size_t size = input.size();
   const size_t num_threads = std::min<size_t>(static_cast<size_t>(ppc::util::GetNumThreads()), size);
 
@@ -131,6 +134,9 @@ OtcheskovSContrastLinStretchALL::MinMax OtcheskovSContrastLinStretchALL::Compute
 }
 
 void OtcheskovSContrastLinStretchALL::CopyInput(const InType &input, OutType &output) {
+  if (input.size() == 0) {
+    return;
+  }
   const size_t size = input.size();
   const size_t num_threads = std::min<size_t>(static_cast<size_t>(ppc::util::GetNumThreads()), size);
   const size_t block = size / num_threads;
@@ -150,6 +156,9 @@ void OtcheskovSContrastLinStretchALL::CopyInput(const InType &input, OutType &ou
 }
 
 void OtcheskovSContrastLinStretchALL::LinearStretch(const InType &input, OutType &output, int min_i, int range) {
+  if (input.size() == 0) {
+    return;
+  }
   const size_t size = input.size();
   const size_t num_threads = std::min<size_t>(static_cast<size_t>(ppc::util::GetNumThreads()), size);
   const size_t block = size / num_threads;
