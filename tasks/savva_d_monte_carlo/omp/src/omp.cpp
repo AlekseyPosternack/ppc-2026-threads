@@ -54,8 +54,8 @@ bool SavvaDMonteCarloOMP::RunImpl() {
 
   const size_t dim = input.Dimension();
   const double vol = input.Volume();
-  // OpenMP исторически лучше работает со знаковыми типами счетчиков циклов
-  const int64_t n = static_cast<int64_t>(input.count_points);
+
+  const auto n = static_cast<int64_t>(input.count_points);
   const auto &func = input.f;
 
   std::vector<std::uniform_real_distribution<double>> distributions(dim);
@@ -70,14 +70,12 @@ bool SavvaDMonteCarloOMP::RunImpl() {
   const int64_t tail = n % 4;
 
 // Открываем параллельную секцию. Суммирование собираем через редукцию
-#pragma omp parallel reduction(+ : sum)
+#pragma omp parallel default(none) shared(distributions, func, dim, n_blocks) reduction(+ : sum)
   {
-    // Каждый поток инициализирует свой собственный генератор.
-    // XOR с номером потока гарантирует уникальность последовательностей.
+
     std::minstd_rand generator(std::random_device{}() ^ omp_get_thread_num());
 
-    // Выделяем память под координаты один раз для каждого потока!
-    // Это избавляет от накладных расходов на аллокацию внутри цикла.
+
     std::vector<double> p1(dim);
     std::vector<double> p2(dim);
     std::vector<double> p3(dim);
@@ -96,7 +94,7 @@ bool SavvaDMonteCarloOMP::RunImpl() {
     }
   }
 
-  // Обрабатываем хвост последовательно (максимум 3 итерации, параллелить нет смысла)
+  
   if (tail > 0) {
     std::minstd_rand generator(std::random_device{}());
     std::vector<double> p_tail(dim);
