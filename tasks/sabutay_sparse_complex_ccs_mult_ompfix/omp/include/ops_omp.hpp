@@ -20,4 +20,4 @@ class SabutaySparseComplexCcsMultOmpFix : public BaseTask {
   bool PostProcessingImpl() override;
 };
 
-}  // namespace sabutay_sparse_complex_ccs_mult_ompfix
+}   // namespace sabutay_sparse_complex_ccs_mult_ompfix
