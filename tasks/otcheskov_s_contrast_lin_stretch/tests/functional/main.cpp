@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include <stb/stb_image.h>
 #include <mpi.h>
+#include <stb/stb_image.h>
 
 #include <algorithm>
 #include <array>
@@ -13,8 +13,8 @@
 #include <tuple>
 #include <vector>
 
-#include "otcheskov_s_contrast_lin_stretch/common/include/common.hpp"
 #include "otcheskov_s_contrast_lin_stretch/all/include/ops_all.hpp"
+#include "otcheskov_s_contrast_lin_stretch/common/include/common.hpp"
 #include "otcheskov_s_contrast_lin_stretch/omp/include/ops_omp.hpp"
 #include "otcheskov_s_contrast_lin_stretch/seq/include/ops_seq.hpp"
 #include "otcheskov_s_contrast_lin_stretch/stl/include/ops_stl.hpp"
@@ -50,8 +50,10 @@ std::vector<uint8_t> LoadGrayscaleImage(const std::string &img_path) {
   return img_data;
 }
 
-bool CheckRange(const OutType& data) {
-  if (data.empty()) return false;
+bool CheckRange(const OutType &data) {
+  if (data.empty()) {
+    return false;
+  }
 
   auto [min_it, max_it] = std::ranges::minmax_element(data);
   return (*min_it == 0 && *max_it == 255) || (*min_it == *max_it);
