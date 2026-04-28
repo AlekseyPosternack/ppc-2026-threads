@@ -20,7 +20,7 @@ namespace {
 
 struct LocalRowData {
   std::vector<int> cols;
-  std::vector<std::complex<double>> vals;
+  std::vector<std::complex<double>> vals;  // 1
 };
 
 std::vector<int> BuildRowBounds(const MatrixCRS &matrix, int proc_count) {
