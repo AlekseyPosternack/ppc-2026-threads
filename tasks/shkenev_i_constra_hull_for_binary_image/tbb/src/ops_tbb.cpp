@@ -5,10 +5,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <queue>
 #include <ranges>
+#include <utility>
 #include <vector>
+
+#include "shkenev_i_constra_hull_for_binary_image/common/include/common.hpp"
 
 namespace shkenev_i_constra_hull_for_binary_image {
 
@@ -19,7 +23,7 @@ constexpr uint8_t kThreshold = 128;
 constexpr std::array<std::pair<int, int>, 4> kDirs = {{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}};
 
 int64_t Cross(const Point &a, const Point &b, const Point &c) {
-  return (int64_t(b.x - a.x) * (c.y - b.y)) - (int64_t(b.y - a.y) * (c.x - b.x));
+  return (static_cast<int64_t>(b.x - a.x) * (c.y - b.y)) - (static_cast<int64_t>(b.y - a.y) * (c.x - b.x));
 }
 
 inline bool InBounds(int x, int y, int w, int h) {
@@ -35,7 +39,8 @@ ShkenevIConstrHullTBB::ShkenevIConstrHullTBB(const InType &in) : work_(in) {
 
 bool ShkenevIConstrHullTBB::ValidationImpl() {
   const auto &in = GetInput();
-  return in.width > 0 && in.height > 0 && in.pixels.size() == size_t(in.width) * size_t(in.height);
+  return in.width > 0 && in.height > 0 &&
+         in.pixels.size() == static_cast<size_t>(in.width) * static_cast<size_t>(in.height);
 }
 
 bool ShkenevIConstrHullTBB::PreProcessingImpl() {
@@ -57,54 +62,61 @@ void ShkenevIConstrHullTBB::ThresholdImage() {
   });
 }
 
+void ShkenevIConstrHullTBB::AddNeighbors(const Point &current, int width, int height, std::vector<uint8_t> &visited,
+                                         std::queue<Point> &queue) {
+  for (auto [dx, dy] : kDirs) {
+    int neighbor_x = current.x + dx;
+    int neighbor_y = current.y + dy;
+
+    if (!InBounds(neighbor_x, neighbor_y, width, height)) {
+      continue;
+    }
+
+    size_t neighbor_idx = Index(neighbor_x, neighbor_y, width);
+
+    if (visited[neighbor_idx] != 0u || work_.pixels[neighbor_idx] == 0) {
+      continue;
+    }
+
+    visited[neighbor_idx] = 1;
+    queue.emplace(neighbor_x, neighbor_y);
+  }
+}
+
+std::vector<Point> ShkenevIConstrHullTBB::ExtractComponent(int start_x, int start_y, int width, int height,
+                                                           std::vector<uint8_t> &visited) {
+  std::vector<Point> component;
+  std::queue<Point> queue;
+  size_t start_idx = Index(start_x, start_y, width);
+
+  queue.emplace(start_x, start_y);
+  visited[start_idx] = 1;
+
+  while (!queue.empty()) {
+    auto current = queue.front();
+    queue.pop();
+    component.push_back(current);
+    AddNeighbors(current, width, height, visited, queue);
+  }
+
+  return component;
+}
+
 void ShkenevIConstrHullTBB::FindComponents() {
-  const int w = work_.width;
-  const int h = work_.height;
-
-  std::vector<uint8_t> visited(size_t(w) * h, 0);
-
+  const int width = work_.width;
+  const int height = work_.height;
+  std::vector<uint8_t> visited(static_cast<size_t>(width) * height, 0);
   work_.components.clear();
 
-  for (int y = 0; y < h; ++y) {
-    for (int x = 0; x < w; ++x) {
-      size_t idx = Index(x, y, w);
+  for (int y_coord = 0; y_coord < height; ++y_coord) {
+    for (int x_coord = 0; x_coord < width; ++x_coord) {
+      size_t idx = Index(x_coord, y_coord, width);
 
-      if (visited[idx] || work_.pixels[idx] == 0) {
+      if (visited[idx] != 0u || work_.pixels[idx] == 0) {
         continue;
       }
 
-      std::vector<Point> comp;
-      std::queue<Point> q;
-
-      q.emplace(x, y);
-      visited[idx] = 1;
-
-      while (!q.empty()) {
-        auto cur = q.front();
-        q.pop();
-
-        comp.push_back(cur);
-
-        for (auto [dx, dy] : kDirs) {
-          int nx = cur.x + dx;
-          int ny = cur.y + dy;
-
-          if (!InBounds(nx, ny, w, h)) {
-            continue;
-          }
-
-          size_t nidx = Index(nx, ny, w);
-
-          if (visited[nidx] || work_.pixels[nidx] == 0) {
-            continue;
-          }
-
-          visited[nidx] = 1;
-          q.emplace(nx, ny);
-        }
-      }
-
-      work_.components.push_back(std::move(comp));
+      work_.components.push_back(ExtractComponent(x_coord, y_coord, width, height, visited));
     }
   }
 }
@@ -119,12 +131,12 @@ bool ShkenevIConstrHullTBB::RunImpl() {
 
   tbb::parallel_for(tbb::blocked_range<size_t>(0, comps.size()), [&](const auto &r) {
     for (size_t i = r.begin(); i < r.end(); ++i) {
-      const auto &c = comps[i];
+      const auto &comp = comps[i];
 
-      if (c.size() <= 2) {
-        hulls[i] = c;
+      if (comp.size() <= 2) {
+        hulls[i] = comp;
       } else {
-        hulls[i] = BuildHull(c);
+        hulls[i] = BuildHull(comp);
       }
     }
   });
@@ -133,37 +145,39 @@ bool ShkenevIConstrHullTBB::RunImpl() {
   return true;
 }
 
-std::vector<Point> ShkenevIConstrHullTBB::BuildHull(const std::vector<Point> &pts_in) {
-  if (pts_in.size() <= 2) {
-    return pts_in;
+std::vector<Point> ShkenevIConstrHullTBB::BuildHull(const std::vector<Point> &points) {
+  if (points.size() <= 2) {
+    return points;
   }
 
-  std::vector<Point> pts = pts_in;
+  std::vector<Point> pts = points;
 
-  std::sort(pts.begin(), pts.end(), [](auto &a, auto &b) { return (a.x != b.x) ? (a.x < b.x) : (a.y < b.y); });
+  std::ranges::sort(pts, [](auto &a, auto &b) { return (a.x != b.x) ? (a.x < b.x) : (a.y < b.y); });
 
-  pts.erase(std::unique(pts.begin(), pts.end()), pts.end());
+  auto [first, last] = std::ranges::unique(pts);
+  pts.erase(first, last);
 
   if (pts.size() <= 2) {
     return pts;
   }
 
-  std::vector<Point> lower, upper;
+  std::vector<Point> lower;
+  std::vector<Point> upper;
   lower.reserve(pts.size());
   upper.reserve(pts.size());
 
-  for (auto &p : pts) {
-    while (lower.size() >= 2 && Cross(lower[lower.size() - 2], lower.back(), p) <= 0) {
+  for (auto &point : pts) {
+    while (lower.size() >= 2 && Cross(lower[lower.size() - 2], lower.back(), point) <= 0) {
       lower.pop_back();
     }
-    lower.push_back(p);
+    lower.push_back(point);
   }
 
-  for (auto &p : std::ranges::reverse_view(pts)) {
-    while (upper.size() >= 2 && Cross(upper[upper.size() - 2], upper.back(), p) <= 0) {
+  for (auto &point : std::ranges::reverse_view(pts)) {
+    while (upper.size() >= 2 && Cross(upper[upper.size() - 2], upper.back(), point) <= 0) {
       upper.pop_back();
     }
-    upper.push_back(p);
+    upper.push_back(point);
   }
 
   lower.pop_back();
@@ -173,8 +187,8 @@ std::vector<Point> ShkenevIConstrHullTBB::BuildHull(const std::vector<Point> &pt
   return lower;
 }
 
-size_t ShkenevIConstrHullTBB::Index(int x, int y, int w) {
-  return size_t(y) * size_t(w) + size_t(x);
+size_t ShkenevIConstrHullTBB::Index(int x, int y, int width) {
+  return (static_cast<size_t>(y) * static_cast<size_t>(width)) + static_cast<size_t>(x);
 }
 
 bool ShkenevIConstrHullTBB::PostProcessingImpl() {
