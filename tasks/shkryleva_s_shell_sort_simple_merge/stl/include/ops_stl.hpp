@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include "core/task/include/task.hpp"
 #include "shkryleva_s_shell_sort_simple_merge/common/include/common.hpp"
 
 namespace shkryleva_s_shell_sort_simple_merge {
@@ -23,6 +22,7 @@ class ShkrylevaSShellMergeSTL : public BaseTask {
  private:
   static void ShellSort(int left, int right, std::vector<int> &arr);
   static void Merge(int left, int mid, int right, std::vector<int> &arr, std::vector<int> &buffer);
+
   static void SortSegments(std::vector<int> &arr, int num_threads, int sub_arr_size);
   static void HierarchicalMerge(std::vector<int> &arr, int num_threads, int sub_arr_size);
 
