@@ -54,7 +54,7 @@ bool SavvaDMonteCarloOMP::RunImpl() {
 
   const size_t dim = input.Dimension();
   const double vol = input.Volume();
-  const int64_t n = static_cast<int64_t>(input.count_points);
+  const auto n = static_cast<int64_t>(input.count_points);
   const auto &func = input.f;
 
   double sum = 0.0;
