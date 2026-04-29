@@ -10,6 +10,39 @@
 
 namespace korolev_k_matrix_mult {
 
+namespace {
+
+void ParallelInvokeThreads(std::vector<std::function<void()>> &tasks) {
+  std::vector<std::thread> threads;
+  threads.reserve(tasks.size());
+  for (auto &t : tasks) {
+    threads.emplace_back(t);
+  }
+  for (auto &th : threads) {
+    th.join();
+  }
+}
+
+void PadInputBlocks(const InType &in, size_t n, size_t np2, std::vector<double> &a_pad,
+                    std::vector<double> &b_pad) {
+  for (size_t i = 0; i < n; ++i) {
+    for (size_t j = 0; j < n; ++j) {
+      a_pad[(i * np2) + j] = in.A[(i * n) + j];
+      b_pad[(i * np2) + j] = in.B[(i * n) + j];
+    }
+  }
+}
+
+void CopyResultCorner(const std::vector<double> &c_pad, std::vector<double> &out, size_t n, size_t np2) {
+  for (size_t i = 0; i < n; ++i) {
+    for (size_t j = 0; j < n; ++j) {
+      out[(i * n) + j] = c_pad[(i * np2) + j];
+    }
+  }
+}
+
+}  // namespace
+
 KorolevKMatrixMultSTL::KorolevKMatrixMultSTL(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
@@ -31,33 +64,15 @@ bool KorolevKMatrixMultSTL::RunImpl() {
   size_t n = in.n;
   size_t np2 = strassen_impl::NextPowerOf2(n);
 
-  auto parallel_run = [](std::vector<std::function<void()>> &tasks) {
-    std::vector<std::thread> threads;
-    threads.reserve(tasks.size());
-    for (auto &t : tasks) {
-      threads.emplace_back(t);
-    }
-    for (auto &th : threads) {
-      th.join();
-    }
-  };
-
   if (np2 == n) {
-    strassen_impl::StrassenMultiply(in.A, in.B, GetOutput(), n, parallel_run);
+    strassen_impl::StrassenMultiply(in.A, in.B, GetOutput(), n, ParallelInvokeThreads);
   } else {
-    std::vector<double> A_pad(np2 * np2, 0), B_pad(np2 * np2, 0), C_pad(np2 * np2, 0);
-    for (size_t i = 0; i < n; ++i) {
-      for (size_t j = 0; j < n; ++j) {
-        A_pad[i * np2 + j] = in.A[i * n + j];
-        B_pad[i * np2 + j] = in.B[i * n + j];
-      }
-    }
-    strassen_impl::StrassenMultiply(A_pad, B_pad, C_pad, np2, parallel_run);
-    for (size_t i = 0; i < n; ++i) {
-      for (size_t j = 0; j < n; ++j) {
-        GetOutput()[i * n + j] = C_pad[i * np2 + j];
-      }
-    }
+    std::vector<double> a_pad(np2 * np2, 0);
+    std::vector<double> b_pad(np2 * np2, 0);
+    std::vector<double> c_pad(np2 * np2, 0);
+    PadInputBlocks(in, n, np2, a_pad, b_pad);
+    strassen_impl::StrassenMultiply(a_pad, b_pad, c_pad, np2, ParallelInvokeThreads);
+    CopyResultCorner(c_pad, GetOutput(), n, np2);
   }
   return true;
 }
