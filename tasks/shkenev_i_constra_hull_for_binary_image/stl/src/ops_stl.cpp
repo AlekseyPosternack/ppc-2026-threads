@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "shkenev_i_constra_hull_for_binary_image/common/include/common.hpp"
 #include "util/include/util.hpp"
 
 namespace shkenev_i_constra_hull_for_binary_image {
@@ -169,9 +170,9 @@ std::vector<Point> ShkenevIConstrHullSTL::BuildHull(const std::vector<Point> &pt
 
   std::ranges::sort(pts, [](const Point &a, const Point &b) { return (a.x < b.x) || (a.x == b.x && a.y < b.y); });
 
-  auto last =
-      std::unique(pts.begin(), pts.end(), [](const Point &a, const Point &b) { return a.x == b.x && a.y == b.y; });
-  pts.erase(last, pts.end());
+  auto [first, last] =
+      std::ranges::unique(pts, [](const Point &a, const Point &b) { return a.x == b.x && a.y == b.y; });
+  pts.erase(first, last);
 
   if (pts.size() <= 2) {
     return pts;
