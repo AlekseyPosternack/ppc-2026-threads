@@ -23,8 +23,7 @@ void ParallelInvokeThreads(std::vector<std::function<void()>> &tasks) {
   }
 }
 
-void PadInputBlocks(const InType &in, size_t n, size_t np2, std::vector<double> &a_pad,
-                    std::vector<double> &b_pad) {
+void PadInputBlocks(const InType &in, size_t n, size_t np2, std::vector<double> &a_pad, std::vector<double> &b_pad) {
   for (size_t i = 0; i < n; ++i) {
     for (size_t j = 0; j < n; ++j) {
       a_pad[(i * np2) + j] = in.A[(i * n) + j];
