@@ -54,15 +54,12 @@ bool SavvaDMonteCarloOMP::RunImpl() {
 
   const size_t dim = input.Dimension();
   const double vol = input.Volume();
-  const auto n = static_cast<int64_t>(input.count_points);
+  const int64_t n = static_cast<int64_t>(input.count_points);
   const auto &func = input.f;
-
-  const int64_t n_blocks = n / 4;
-  const int64_t tail = n % 4;
 
   double sum = 0.0;
 
-#pragma omp parallel default(none) shared(input, func, dim, n_blocks, tail) reduction(+ : sum)
+#pragma omp parallel default(none) shared(input, func, dim, n) reduction(+ : sum)
   {
     std::minstd_rand gen(1337 + omp_get_thread_num());
 
@@ -74,17 +71,7 @@ bool SavvaDMonteCarloOMP::RunImpl() {
     std::vector<double> point(dim);
 
 #pragma omp for schedule(static)
-    for (int64_t i = 0; i < n_blocks; ++i) {
-      for (int k = 0; k < 4; ++k) {
-        for (size_t j = 0; j < dim; ++j) {
-          point[j] = dists[j](gen);
-        }
-        sum += func(point);
-      }
-    }
-
-#pragma omp for schedule(static)
-    for (int64_t i = 0; i < tail; ++i) {
+    for (int64_t i = 0; i < n; ++i) {
       for (size_t j = 0; j < dim; ++j) {
         point[j] = dists[j](gen);
       }
