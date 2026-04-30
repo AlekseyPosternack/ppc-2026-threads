@@ -100,8 +100,8 @@ double KosolapovVCalcMultIntegralsMRectanglesTBB::RectanglesIntegral(int func_id
     for (size_t idx = range.begin(); idx != range.end(); ++idx) {
       int i = static_cast<int>(idx / steps);
       int j = static_cast<int>(idx % steps);
-      double x = (a + (i + 0.5) * hx);
-      double y = (c + (j + 0.5) * hy);
+      double x = (a + ((i + 0.5) * hx));
+      double y = (c + ((j + 0.5) * hy));
       local_sum += CallFunction(func_id, x, y);
     }
     return local_sum;
