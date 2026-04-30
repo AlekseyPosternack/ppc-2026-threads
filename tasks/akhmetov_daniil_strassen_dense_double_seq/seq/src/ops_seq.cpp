@@ -42,9 +42,9 @@ Matrix StandardMultiply(const Matrix &a, const Matrix &b, size_t size) {
     for (size_t j = 0; j < size; ++j) {
       double sum = 0.0;
       for (size_t k = 0; k < size; ++k) {
-        sum += a[(i * size) + k] * b[(k * size) + j];
+        sum += a.at((i * size) + k) * b.at((k * size) + j);
       }
-      c[(i * size) + j] = sum;
+      c.at((i * size) + j) = sum;
     }
   }
   return c;
@@ -53,24 +53,24 @@ Matrix StandardMultiply(const Matrix &a, const Matrix &b, size_t size) {
 inline void Add(const Matrix &a, const Matrix &b, Matrix &c) {
   const size_t n = a.size();
   for (size_t i = 0; i < n; ++i) {
-    c[i] = a[i] + b[i];
+    c.at(i) = a.at(i) + b.at(i);
   }
 }
 
 inline void Sub(const Matrix &a, const Matrix &b, Matrix &c) {
   const size_t n = a.size();
   for (size_t i = 0; i < n; ++i) {
-    c[i] = a[i] - b[i];
+    c.at(i) = a.at(i) - b.at(i);
   }
 }
 
 void SplitMatrix(const Matrix &src, Matrix &a11, Matrix &a12, Matrix &a21, Matrix &a22, size_t size, size_t half) {
   for (size_t i = 0; i < half; ++i) {
     for (size_t j = 0; j < half; ++j) {
-      a11[(i * half) + j] = src[(i * size) + j];
-      a12[(i * half) + j] = src[(i * size) + j + half];
-      a21[(i * half) + j] = src[((i + half) * size) + j];
-      a22[(i * half) + j] = src[((i + half) * size) + j + half];
+      a11.at((i * half) + j) = src.at((i * size) + j);
+      a12.at((i * half) + j) = src.at((i * size) + j + half);
+      a21.at((i * half) + j) = src.at(((i + half) * size) + j);
+      a22.at((i * half) + j) = src.at(((i + half) * size) + j + half);
     }
   }
 }
@@ -79,10 +79,10 @@ void MergeMatrix(Matrix &dst, const Matrix &c11, const Matrix &c12, const Matrix
                  size_t half) {
   for (size_t i = 0; i < half; ++i) {
     for (size_t j = 0; j < half; ++j) {
-      dst[(i * size) + j] = c11[(i * half) + j];
-      dst[(i * size) + j + half] = c12[(i * half) + j];
-      dst[((i + half) * size) + j] = c21[(i * half) + j];
-      dst[((i + half) * size) + j + half] = c22[(i * half) + j];
+      dst.at((i * size) + j) = c11.at((i * half) + j);
+      dst.at((i * size) + j + half) = c12.at((i * half) + j);
+      dst.at(((i + half) * size) + j) = c21.at((i * half) + j);
+      dst.at(((i + half) * size) + j + half) = c22.at((i * half) + j);
     }
   }
 }
@@ -94,8 +94,8 @@ void CreatePaddedMatrices(const Matrix &a, const Matrix &b, size_t n, size_t new
     b_padded.assign(new_n * new_n, 0.0);
     for (size_t i = 0; i < n; ++i) {
       for (size_t j = 0; j < n; ++j) {
-        a_padded[(i * new_n) + j] = a[(i * n) + j];
-        b_padded[(i * new_n) + j] = b[(i * n) + j];
+        a_padded.at((i * new_n) + j) = a.at((i * n) + j);
+        b_padded.at((i * new_n) + j) = b.at((i * n) + j);
       }
     }
   } else {
@@ -126,7 +126,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
   }
 
   size_t current_index = stack.size() - 1;
-  Frame &frame = stack[current_index];
+  Frame &frame = stack.at(current_index);
 
   if (frame.size <= kThreshold) {
     Matrix base = StandardMultiply(frame.a, frame.b, frame.size);
@@ -179,7 +179,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
 
       stack.emplace_back(std::move(temp_a_copy), std::move(temp_b_copy), half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 2;
       return;
     }
@@ -191,7 +191,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix temp_a_copy = frame.temp_a;
       stack.emplace_back(std::move(temp_a_copy), frame.b11, half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 3;
       return;
     }
@@ -203,7 +203,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix temp_b_copy = frame.temp_b;
       stack.emplace_back(frame.a11, std::move(temp_b_copy), half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 4;
       return;
     }
@@ -215,7 +215,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix temp_b_copy = frame.temp_b;
       stack.emplace_back(frame.a22, std::move(temp_b_copy), half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 5;
       return;
     }
@@ -227,7 +227,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix temp_a_copy = frame.temp_a;
       stack.emplace_back(std::move(temp_a_copy), frame.b22, half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 6;
       return;
     }
@@ -241,7 +241,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix temp_b_copy = frame.temp_b;
       stack.emplace_back(std::move(temp_a_copy), std::move(temp_b_copy), half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 7;
       return;
     }
@@ -255,7 +255,7 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix temp_b_copy = frame.temp_b;
       stack.emplace_back(std::move(temp_a_copy), std::move(temp_b_copy), half);
 
-      Frame &updated_frame = stack[current_index];
+      Frame &updated_frame = stack.at(current_index);
       updated_frame.stage = 8;
       return;
     }
@@ -269,10 +269,10 @@ void ProcessTopFrame(std::vector<Frame> &stack, Matrix &final_result) {
       Matrix c22(block_size);
 
       for (size_t i = 0; i < block_size; ++i) {
-        c11[i] = frame.m1[i] + frame.m4[i] - frame.m5[i] + frame.m7[i];
-        c12[i] = frame.m3[i] + frame.m5[i];
-        c21[i] = frame.m2[i] + frame.m4[i];
-        c22[i] = frame.m1[i] - frame.m2[i] + frame.m3[i] + frame.m6[i];
+        c11.at(i) = frame.m1.at(i) + frame.m4.at(i) - frame.m5.at(i) + frame.m7.at(i);
+        c12.at(i) = frame.m3.at(i) + frame.m5.at(i);
+        c21.at(i) = frame.m2.at(i) + frame.m4.at(i);
+        c22.at(i) = frame.m1.at(i) - frame.m2.at(i) + frame.m3.at(i) + frame.m6.at(i);
       }
 
       Matrix merged(frame.size * frame.size);
@@ -334,7 +334,7 @@ bool AkhmetovDStrassenDenseDoubleSEQ::RunImpl() {
   output.assign(n * n, 0.0);
   for (size_t i = 0; i < n; ++i) {
     for (size_t j = 0; j < n; ++j) {
-      output[(i * n) + j] = result_padded[(i * new_n) + j];
+      output.at((i * n) + j) = result_padded.at((i * new_n) + j);
     }
   }
 

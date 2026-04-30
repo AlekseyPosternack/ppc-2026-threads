@@ -12,7 +12,7 @@ class AkhmetovDStrassenDenseDoubleSEQ : public BaseTask {
   }
   explicit AkhmetovDStrassenDenseDoubleSEQ(const InType &in);
 
- private:
+ protected:
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
