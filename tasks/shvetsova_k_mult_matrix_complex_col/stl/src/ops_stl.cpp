@@ -15,7 +15,6 @@ struct SparseColumn {
   std::vector<std::complex<double>> vals;
 };
 
-// Выносим логику в анонимное пространство имен для снижения когнитивной сложности RunImpl
 namespace {
 void ComputeColumnTask(int col_idx, const MatrixCCS &matrix_a, const MatrixCCS &matrix_b,
                        std::vector<std::complex<double>> &column_c_local, SparseColumn &out_col) {
