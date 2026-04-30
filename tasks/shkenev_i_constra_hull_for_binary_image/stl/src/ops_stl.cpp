@@ -16,7 +16,7 @@ namespace shkenev_i_constra_hull_for_binary_image {
 
 namespace {
 
-// 12
+// 1
 constexpr uint8_t kThreshold = 128;
 
 constexpr std::array<std::pair<int, int>, 4> kDirs = {std::pair{1, 0}, std::pair{-1, 0}, std::pair{0, 1},
