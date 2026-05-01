@@ -37,11 +37,13 @@ bool IsBetterPoint(Point current, Point candidate, Point best) {
 }
 
 BestState ReduceBestStates(const BestState &a, const BestState &b, Point current) {
-  if (!a.valid) return b;
-  if (!b.valid) return a;
-  return BestState{
-      .point = IsBetterPoint(current, b.point, a.point) ? b.point : a.point,
-      .valid = true};
+  if (!a.valid) {
+    return b;
+  }
+  if (!b.valid) {
+    return a;
+  }
+  return BestState{.point = IsBetterPoint(current, b.point, a.point) ? b.point : a.point, .valid = true};
 }
 
 }  // namespace
@@ -85,15 +87,20 @@ bool OrehovNJarvisPassSTL::RunImpl() {
 
 Point OrehovNJarvisPassSTL::FindNext(Point current) const {
   const size_t n = input_.size();
-  if (n == 0) return current;
+  if (n == 0) {
+    return current;
+  }
 
   unsigned int num_threads = std::thread::hardware_concurrency();
-  if (num_threads == 0) num_threads = 1;          // fallback
-  if (num_threads > n) num_threads = static_cast<unsigned int>(n);
+  if (num_threads == 0) {
+    num_threads = 1;  // fallback
+  }
+  if (num_threads > n) {
+    num_threads = static_cast<unsigned int>(n);
+  }
 
   std::vector<std::thread> threads;
-  std::vector<BestState> results(num_threads,
-                                 BestState{Point(), false});  // все невалидные изначально
+  std::vector<BestState> results(num_threads, BestState{Point(), false});  // все невалидные изначально
 
   size_t chunk = n / num_threads;
   size_t remainder = n % num_threads;
@@ -102,19 +109,20 @@ Point OrehovNJarvisPassSTL::FindNext(Point current) const {
   // Запускаем потоки
   for (unsigned int i = 0; i < num_threads; ++i) {
     size_t end = start + chunk + (i < remainder ? 1 : 0);
-    threads.emplace_back(
-        [this, &results, i, start, end, current]() {
-          BestState local{Point(), false};
-          for (size_t j = start; j < end; ++j) {
-            const Point &p = input_[j];
-            if (p == current) continue;
-            if (!local.valid || IsBetterPoint(current, p, local.point)) {
-              local.point = p;
-              local.valid = true;
-            }
-          }
-          results[i] = local;
-        });
+    threads.emplace_back([this, &results, i, start, end, current]() {
+      BestState local{Point(), false};
+      for (size_t j = start; j < end; ++j) {
+        const Point &p = input_[j];
+        if (p == current) {
+          continue;
+        }
+        if (!local.valid || IsBetterPoint(current, p, local.point)) {
+          local.point = p;
+          local.valid = true;
+        }
+      }
+      results[i] = local;
+    });
     start = end;
   }
 
