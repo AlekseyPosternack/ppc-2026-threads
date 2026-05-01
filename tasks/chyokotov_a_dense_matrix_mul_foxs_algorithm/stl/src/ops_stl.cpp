@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "chyokotov_a_dense_matrix_mul_foxs_algorithm/common/include/common.hpp"
+#include "util/include/util.hpp"
 
 namespace chyokotov_a_dense_matrix_mul_foxs_algorithm {
 
