@@ -2,10 +2,12 @@
 
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <future>
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "kichanova_k_lin_system_by_conjug_grad/common/include/common.hpp"
@@ -23,17 +25,17 @@ class ThreadPool {
   }
 
   void ParallelFor(int n, const std::function<void(int, int)> &func) {
-    int num_threads = threads_.size();
+    int num_threads = static_cast<int>(threads_.size());
     std::vector<std::future<void>> futures;
     futures.reserve(num_threads);
 
     int chunk_size = n / num_threads;
     int remainder = n % num_threads;
 
-    for (int t = 0; t < num_threads; ++t) {
-      int start = t * chunk_size;
+    for (int thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
+      int start = thread_idx * chunk_size;
       int end = start + chunk_size;
-      if (t == num_threads - 1) {
+      if (thread_idx == num_threads - 1) {
         end += remainder;
       }
 
@@ -46,17 +48,17 @@ class ThreadPool {
   }
 
   double ParallelReduce(int n, const std::function<double(int, int)> &func) {
-    int num_threads = threads_.size();
+    int num_threads = static_cast<int>(threads_.size());
     std::vector<std::future<double>> futures;
     futures.reserve(num_threads);
 
     int chunk_size = n / num_threads;
     int remainder = n % num_threads;
 
-    for (int t = 0; t < num_threads; ++t) {
-      int start = t * chunk_size;
+    for (int thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
+      int start = thread_idx * chunk_size;
       int end = start + chunk_size;
-      if (t == num_threads - 1) {
+      if (thread_idx == num_threads - 1) {
         end += remainder;
       }
 
@@ -71,7 +73,7 @@ class ThreadPool {
   }
 
  private:
-  ThreadPool(size_t num_threads) : stop_(false) {
+  explicit ThreadPool(size_t num_threads) {
     for (size_t i = 0; i < num_threads; ++i) {
       threads_.emplace_back([this]() { Worker(); });
     }
@@ -120,7 +122,7 @@ class ThreadPool {
   std::queue<std::function<void()>> tasks_;
   std::mutex mutex_;
   std::condition_variable condition_;
-  bool stop_;
+  bool stop_ = false;
 };
 
 double ComputeDotProduct(const std::vector<double> &a, const std::vector<double> &b, int n) {
@@ -167,7 +169,7 @@ void UpdateResidual(std::vector<double> &r, const std::vector<double> &ap, doubl
 void UpdateSearchDirection(std::vector<double> &p, const std::vector<double> &r, double beta, int n) {
   ThreadPool::Instance().ParallelFor(n, [&](int start, int end) {
     for (int i = start; i < end; ++i) {
-      p[i] = r[i] + beta * p[i];
+      p[i] = r[i] + (beta * p[i]);
     }
   });
 }
