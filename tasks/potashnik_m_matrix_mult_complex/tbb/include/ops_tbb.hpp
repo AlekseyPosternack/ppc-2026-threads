@@ -3,7 +3,7 @@
 #include "potashnik_m_matrix_mult_complex/common/include/common.hpp"
 #include "task/include/task.hpp"
 
-namespace potashnik_m_matrix_mult_complex {  
+namespace potashnik_m_matrix_mult_complex {
 
 class PotashnikMMatrixMultComplexTBB : public BaseTask {
  public:
