@@ -36,7 +36,22 @@ bool IsBetterPoint(Point current, Point candidate, Point best) {
   return false;
 }
 
-BestState ReduceBestStates(const BestState &a, const BestState &b, Point current) {
+BestState FindBestInRange(const std::vector<Point> &points, Point current, size_t start, size_t end) {
+  BestState local{.point = Point(), .valid = false};
+  for (size_t j = start; j < end; ++j) {
+    const Point &p = points[j];
+    if (p == current) {
+      continue;
+    }
+    if (!local.valid || IsBetterPoint(current, p, local.point)) {
+      local.point = p;
+      local.valid = true;
+    }
+  }
+  return local;
+}
+
+BestState CombineBestStates(const BestState &a, const BestState &b, Point current) {
   if (!a.valid) {
     return b;
   }
@@ -93,54 +108,33 @@ Point OrehovNJarvisPassSTL::FindNext(Point current) const {
 
   unsigned int num_threads = std::thread::hardware_concurrency();
   if (num_threads == 0) {
-    num_threads = 1;  // fallback
+    num_threads = 1;
   }
   if (num_threads > n) {
     num_threads = static_cast<unsigned int>(n);
   }
 
-  std::vector<std::thread> threads;
-  std::vector<BestState> results(num_threads, BestState{Point(), false});  // все невалидные изначально
-
   size_t chunk = n / num_threads;
   size_t remainder = n % num_threads;
   size_t start = 0;
 
-  // Запускаем потоки
+  std::vector<std::thread> threads;
+  std::vector<BestState> results(num_threads, BestState{.point = Point(), .valid = false});
+
   for (unsigned int i = 0; i < num_threads; ++i) {
     size_t end = start + chunk + (i < remainder ? 1 : 0);
-    threads.emplace_back([this, &results, i, start, end, current]() {
-      BestState local{Point(), false};
-      for (size_t j = start; j < end; ++j) {
-        const Point &p = input_[j];
-        if (p == current) {
-          continue;
-        }
-        if (!local.valid || IsBetterPoint(current, p, local.point)) {
-          local.point = p;
-          local.valid = true;
-        }
-      }
-      results[i] = local;
-    });
+    threads.emplace_back(
+        [this, &results, i, start, end, current]() { results[i] = FindBestInRange(input_, current, start, end); });
     start = end;
   }
 
-  // Ожидаем завершения
   for (auto &t : threads) {
     t.join();
   }
 
-  // Редукция (объединение результатов)
-  BestState final_best{Point(), false};
+  BestState final_best{.point = Point(), .valid = false};
   for (const auto &best : results) {
-    if (best.valid) {
-      if (!final_best.valid) {
-        final_best = best;
-      } else {
-        final_best = ReduceBestStates(final_best, best, current);
-      }
-    }
+    final_best = CombineBestStates(final_best, best, current);
   }
 
   return final_best.valid ? final_best.point : current;

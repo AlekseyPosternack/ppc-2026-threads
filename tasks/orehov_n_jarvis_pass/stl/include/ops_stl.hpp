@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "orehov_n_jarvis_pass/common/include/common.hpp"
 #include "task/include/task.hpp"
 
