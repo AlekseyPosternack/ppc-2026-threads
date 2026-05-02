@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstddef>
+#include <vector>
+
 #include "orehov_n_jarvis_pass/common/include/common.hpp"
 #include "task/include/task.hpp"
 
@@ -33,8 +36,8 @@ class OrehovNJarvisPassALL : public BaseTask {
   [[nodiscard]] static BestState ReduceBestStates(const BestState &a, const BestState &b, const Point &current);
 
   [[nodiscard]] BestState LocalFindBest(const Point &current, size_t start, size_t end) const;
-  [[nodiscard]] BestState GlobalReduce(const std::vector<double> &all_data, int size, const Point &current) const;
-  [[nodiscard]] BestState FinalizeBestPoint(const double *global_data) const;
+  [[nodiscard]] static BestState GlobalReduce(const std::vector<double> &all_data, int size, const Point &current);
+  [[nodiscard]] static BestState FinalizeBestPoint(const double *global_data);
 
   std::vector<Point> res_;
   std::vector<Point> input_;

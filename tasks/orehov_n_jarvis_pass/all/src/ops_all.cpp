@@ -3,6 +3,8 @@
 #include <mpi.h>
 #include <omp.h>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <set>
@@ -20,11 +22,11 @@ bool OrehovNJarvisPassALL::IsBetterPoint(const Point &current, const Point &cand
   if (orient == 0.0) {
     double dx_c = candidate.x - current.x;
     double dy_c = candidate.y - current.y;
-    double dist_c = dx_c * dx_c + dy_c * dy_c;
+    double dist_c = (dx_c * dx_c) + (dy_c * dy_c);
 
     double dx_b = best.x - current.x;
     double dy_b = best.y - current.y;
-    double dist_b = dx_b * dx_b + dy_b * dy_b;
+    double dist_b = (dx_b * dx_b) + (dy_b * dy_b);
 
     return dist_c > dist_b;
   }
@@ -49,7 +51,7 @@ OrehovNJarvisPassALL::OrehovNJarvisPassALL(const InType &in) {
 }
 
 bool OrehovNJarvisPassALL::ValidationImpl() {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   if (rank == 0) {
     return !GetInput().empty();
@@ -58,8 +60,9 @@ bool OrehovNJarvisPassALL::ValidationImpl() {
 }
 
 bool OrehovNJarvisPassALL::PreProcessingImpl() {
-  int rank, size;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int size = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   if (rank == 0) {
@@ -78,7 +81,7 @@ bool OrehovNJarvisPassALL::PreProcessingImpl() {
   if (rank == 0) {
     for (size_t i = 0; i < vec_size; ++i) {
       buffer[2 * i] = input_[i].x;
-      buffer[2 * i + 1] = input_[i].y;
+      buffer[(2 * i) + 1] = input_[i].y;
     }
   }
   MPI_Bcast(buffer.data(), static_cast<int>(vec_size * 2), MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -86,7 +89,7 @@ bool OrehovNJarvisPassALL::PreProcessingImpl() {
   if (rank != 0) {
     for (size_t i = 0; i < vec_size; ++i) {
       input_[i].x = buffer[2 * i];
-      input_[i].y = buffer[2 * i + 1];
+      input_[i].y = buffer[(2 * i) + 1];
     }
   }
   return true;
@@ -115,12 +118,14 @@ bool OrehovNJarvisPassALL::RunImpl() {
 OrehovNJarvisPassALL::BestState OrehovNJarvisPassALL::LocalFindBest(const Point &current, size_t start,
                                                                     size_t end) const {
   BestState local_best;
-#pragma omp parallel
+  // Сохраняем this в переменную, разрешённую в shared
+  auto *self = this;
+#pragma omp parallel default(none) shared(local_best, start, end, current, self)
   {
     BestState thread_best;
 #pragma omp for nowait
     for (size_t i = start; i < end; ++i) {
-      const Point &p = input_[i];
+      const Point &p = self->input_[i];
       if (p == current) {
         continue;
       }
@@ -144,14 +149,14 @@ OrehovNJarvisPassALL::BestState OrehovNJarvisPassALL::LocalFindBest(const Point 
 }
 
 OrehovNJarvisPassALL::BestState OrehovNJarvisPassALL::GlobalReduce(const std::vector<double> &all_data, int size,
-                                                                   const Point &current) const {
+                                                                   const Point &current) {
   BestState global_best;
-  for (int i = 0; i < size; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(size); ++i) {
     double x = all_data[3 * i];
-    double y = all_data[3 * i + 1];
-    bool v = (all_data[3 * i + 2] != 0.0);
+    double y = all_data[(3 * i) + 1];
+    bool v = (all_data[(3 * i) + 2] != 0.0);
     if (v) {
-      BestState proc_best{Point(x, y), true};
+      BestState proc_best{.point = Point(x, y), .valid = true};
       if (!global_best.valid) {
         global_best = proc_best;
       } else {
@@ -162,8 +167,8 @@ OrehovNJarvisPassALL::BestState OrehovNJarvisPassALL::GlobalReduce(const std::ve
   return global_best;
 }
 
-OrehovNJarvisPassALL::BestState OrehovNJarvisPassALL::FinalizeBestPoint(const double *global_data) const {
-  return BestState{Point(global_data[0], global_data[1]), (global_data[2] != 0.0)};
+OrehovNJarvisPassALL::BestState OrehovNJarvisPassALL::FinalizeBestPoint(const double *global_data) {
+  return BestState{.point = Point(global_data[0], global_data[1]), .valid = (global_data[2] != 0.0)};
 }
 
 Point OrehovNJarvisPassALL::FindNext(Point current) const {
@@ -172,24 +177,25 @@ Point OrehovNJarvisPassALL::FindNext(Point current) const {
     return current;
   }
 
-  int rank, size;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int size = 0;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
   size_t chunk = n / size;
   size_t rest = n % size;
-  size_t start = rank * chunk + std::min(static_cast<size_t>(rank), rest);
-  size_t end = start + chunk + (rank < static_cast<int>(rest) ? 1 : 0);
+  size_t start = (static_cast<size_t>(rank) * chunk) + std::min(static_cast<size_t>(rank), rest);
+  size_t end = start + chunk + (static_cast<size_t>(rank) < rest ? 1 : 0);
 
   BestState local_best = LocalFindBest(current, start, end);
 
-  double local_data[3] = {local_best.valid ? local_best.point.x : 0.0, local_best.valid ? local_best.point.y : 0.0,
-                          local_best.valid ? 1.0 : 0.0};
+  std::array<double, 3> local_data = {local_best.valid ? local_best.point.x : 0.0,
+                                      local_best.valid ? local_best.point.y : 0.0, local_best.valid ? 1.0 : 0.0};
 
-  std::vector<double> all_data(size * 3);
-  MPI_Gather(local_data, 3, MPI_DOUBLE, all_data.data(), 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  std::vector<double> all_data(static_cast<size_t>(size) * 3);
+  MPI_Gather(local_data.data(), 3, MPI_DOUBLE, all_data.data(), 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  double global_data[3] = {0.0, 0.0, 0.0};
+  std::array<double, 3> global_data = {0.0, 0.0, 0.0};
   if (rank == 0) {
     BestState global_best = GlobalReduce(all_data, size, current);
     if (global_best.valid) {
@@ -199,8 +205,8 @@ Point OrehovNJarvisPassALL::FindNext(Point current) const {
     }
   }
 
-  MPI_Bcast(global_data, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-  BestState final_best = FinalizeBestPoint(global_data);
+  MPI_Bcast(global_data.data(), 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  BestState final_best = FinalizeBestPoint(global_data.data());
   return final_best.valid ? final_best.point : current;
 }
 
@@ -216,6 +222,10 @@ Point OrehovNJarvisPassALL::FindFirstElem() const {
     }
   }
   return current;
+}
+
+double OrehovNJarvisPassALL::Distance(Point a, Point b) {
+  return std::sqrt(std::pow(a.y - b.y, 2) + std::pow(a.x - b.x, 2));
 }
 
 bool OrehovNJarvisPassALL::PostProcessingImpl() {
