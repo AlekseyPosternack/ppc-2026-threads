@@ -61,8 +61,7 @@ TEST_P(DolovVCrsMatMultRunPerfTestThreads, BandMatrixPerformance) {
 
 namespace {
 
-const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, DolovVCrsMatMultSeq>(PPC_SETTINGS_dolov_v_crs_mat_mult);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, DolovVCrsMatMultSeq>(PPC_SETTINGS_dolov_v_crs_mat_mult);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 const auto kPerfTestName = DolovVCrsMatMultRunPerfTestThreads::CustomPerfTestName;

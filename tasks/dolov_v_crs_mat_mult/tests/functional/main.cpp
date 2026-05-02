@@ -145,8 +145,8 @@ const std::array<TestType, 7> kTestParam = {std::make_tuple(1, "SmallSparse"),  
                                             std::make_tuple(5, "LargeSparse"),  std::make_tuple(6, "DenseRow"),
                                             std::make_tuple(7, "SingleElement")};
 
-const auto kTestTasksList = std::tuple_cat(
-    ppc::util::AddFuncTask<DolovVCrsMatMultSeq, InType>(kTestParam, PPC_SETTINGS_dolov_v_crs_mat_mult));
+const auto kTestTasksList =
+    std::tuple_cat(ppc::util::AddFuncTask<DolovVCrsMatMultSeq, InType>(kTestParam, PPC_SETTINGS_dolov_v_crs_mat_mult));
 
 const auto kGtestValues = ppc::util::ExpandToValues(kTestTasksList);
 const auto kFuncTestName = DolovVCrsMatMultRunFuncTestsThreads::PrintFuncTestName<DolovVCrsMatMultRunFuncTestsThreads>;
