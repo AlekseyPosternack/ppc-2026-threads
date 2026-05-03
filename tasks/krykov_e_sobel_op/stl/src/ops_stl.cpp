@@ -37,6 +37,21 @@ bool KrykovESobelOpSTL::PreProcessingImpl() {
   return true;
 }
 
+int ComputeMagnitude(const std::vector<int> &gray, int w, int row, int col,
+                     const std::array<std::array<int, 3>, 3> &gx_kernel,
+                     const std::array<std::array<int, 3>, 3> &gy_kernel) {
+  int gx = 0;
+  int gy = 0;
+  for (int ky = -1; ky <= 1; ++ky) {
+    for (int kx = -1; kx <= 1; ++kx) {
+      int pixel = gray[((row + ky) * w) + (col + kx)];
+      gx += pixel * gx_kernel.at(ky + 1).at(kx + 1);
+      gy += pixel * gy_kernel.at(ky + 1).at(kx + 1);
+    }
+  }
+  return static_cast<int>(std::sqrt(static_cast<double>((gx * gx) + (gy * gy))));
+}
+
 bool KrykovESobelOpSTL::RunImpl() {
   const std::array<std::array<int, 3>, 3> gx_kernel = {{{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}};
   const std::array<std::array<int, 3>, 3> gy_kernel = {{{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}};
@@ -51,40 +66,28 @@ bool KrykovESobelOpSTL::RunImpl() {
     num_threads = 2;
   }
 
-  const int total_rows = h - 2;
-  if (total_rows <= 0) {
+  const unsigned int total_rows = static_cast<unsigned int>(h - 2);
+  if (total_rows == 0) {
     return true;
   }
 
-  const int rows_per_thread = total_rows / static_cast<int>(num_threads);
-  const int remainder = total_rows % static_cast<int>(num_threads);
+  const unsigned int rows_per_thread = total_rows / num_threads;
+  const unsigned int remainder = total_rows % num_threads;
 
-  int next_start = 1;
   std::vector<std::thread> threads;
   threads.reserve(num_threads);
 
+  unsigned int next_start = 1;
   for (unsigned int i = 0; i < num_threads; ++i) {
-    int chunk_rows = rows_per_thread + (i < static_cast<unsigned>(remainder) ? 1 : 0);
-    int start_row = next_start;
-    int end_row = start_row + chunk_rows;
+    unsigned int chunk_rows = rows_per_thread + (i < remainder ? 1 : 0);
+    unsigned int start_row = next_start;
+    unsigned int end_row = start_row + chunk_rows;
     next_start = end_row;
 
     threads.emplace_back([&, start_row, end_row]() {
-      for (int row = start_row; row < end_row; ++row) {
+      for (unsigned int row = start_row; row < end_row; ++row) {
         for (int col = 1; col < w - 1; ++col) {
-          int gx = 0;
-          int gy = 0;
-
-          for (int ky = -1; ky <= 1; ++ky) {
-            for (int kx = -1; kx <= 1; ++kx) {
-              int pixel = gray[((row + ky) * w) + (col + kx)];
-              gx += pixel * gx_kernel[ky + 1][kx + 1];
-              gy += pixel * gy_kernel[ky + 1][kx + 1];
-            }
-          }
-
-          int magnitude = static_cast<int>(std::sqrt(static_cast<double>((gx * gx) + (gy * gy))));
-          output[(row * w) + col] = magnitude;
+          output[(row * w) + col] = ComputeMagnitude(gray, w, static_cast<int>(row), col, gx_kernel, gy_kernel);
         }
       }
     });
