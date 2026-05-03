@@ -7,10 +7,10 @@
 #include <utility>
 #include <vector>
 
-#include "example_threads/common/include/common.hpp"
+// Заменен некорректный инклуд из example_threads на правильный для вашей задачи
 #include "oneapi/tbb/blocked_range.h"
 #include "oneapi/tbb/parallel_for.h"
-#include "util/include/util.hpp"
+#include "shvetsova_k_mult_matrix_complex_col/common/include/common.hpp"
 
 namespace shvetsova_k_mult_matrix_complex_col {
 
@@ -19,8 +19,9 @@ struct SparseColumn {
   std::vector<std::complex<double>> vals;
 };
 
-// функция для вычисления одного столбца
+// Анонимное пространство имен с функциями-хелперами для снижения Cognitive Complexity
 namespace {
+
 void ComputeColumnTask(int col_idx, const MatrixCCS &matrix_a, const MatrixCCS &matrix_b,
                        std::vector<std::complex<double>> &column_c_local, SparseColumn &out_col) {
   std::ranges::fill(column_c_local, std::complex<double>{0.0, 0.0});
@@ -41,6 +42,52 @@ void ComputeColumnTask(int col_idx, const MatrixCCS &matrix_a, const MatrixCCS &
     }
   }
 }
+
+// Хелпер для подготовки смещений (снижает сложность RunImpl)
+void PrepareGatherDisplacements(int size, int cols_per_rank, int remainder, const std::vector<int> &all_nnz_per_col,
+                                std::vector<int> &recv_counts, std::vector<int> &displs_cols,
+                                std::vector<int> &recv_nnz_counts, std::vector<int> &displs_nnz,
+                                int &total_global_nnz) {
+  for (int i = 0; i < size; ++i) {
+    recv_counts[i] = cols_per_rank + (i < remainder ? 1 : 0);
+    displs_cols[i] = (i * cols_per_rank) + std::min(i, remainder);
+
+    int nnz_sum = 0;
+    for (int j = 0; j < recv_counts[i]; ++j) {
+      nnz_sum += all_nnz_per_col[displs_cols[i] + j];
+    }
+    recv_nnz_counts[i] = nnz_sum;
+
+    if (i > 0) {
+      displs_nnz[i] = displs_nnz[i - 1] + recv_nnz_counts[i - 1];
+    }
+  }
+  if (size > 0) {
+    total_global_nnz = displs_nnz.back() + recv_nnz_counts.back();
+  }
+}
+
+// Хелпер для сборки финальной матрицы (снижает сложность RunImpl)
+void AssembleFinalMatrix(const std::vector<int> &all_nnz_per_col, const std::vector<int> &all_rows,
+                         const std::vector<double> &all_vals_real, const std::vector<double> &all_vals_imag, int cols,
+                         MatrixCCS &matrix_c) {
+  matrix_c.row_ind.clear();
+  matrix_c.values.clear();
+  matrix_c.col_ptr.clear();
+  matrix_c.col_ptr.push_back(0);
+
+  int current_nnz = 0;
+  for (int i = 0; i < cols; ++i) {
+    int nnz = all_nnz_per_col[i];
+    for (int k = 0; k < nnz; ++k) {
+      matrix_c.row_ind.push_back(all_rows[current_nnz + k]);
+      matrix_c.values.emplace_back(all_vals_real[current_nnz + k], all_vals_imag[current_nnz + k]);
+    }
+    current_nnz += nnz;
+    matrix_c.col_ptr.push_back(static_cast<int>(matrix_c.row_ind.size()));
+  }
+}
+
 }  // namespace
 
 ShvetsovaKMultMatrixComplexALL::ShvetsovaKMultMatrixComplexALL(const InType &in) {
@@ -77,11 +124,11 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  // распределение столбцов между MPI-процессами
   int cols_per_rank = matrix_b.cols / size;
   int remainder = matrix_b.cols % size;
 
-  int local_start = rank * cols_per_rank + std::min(rank, remainder);
+  // Добавлены скобки для явного указания приоритета
+  int local_start = (rank * cols_per_rank) + std::min(rank, remainder);
   int local_count = cols_per_rank + (rank < remainder ? 1 : 0);
 
   std::vector<SparseColumn> local_columns(local_count);
@@ -94,7 +141,6 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
     }
   });
 
-  // подготовка локальных данных к отправке через MPI
   std::vector<int> local_nnz_per_col(local_count);
   int total_local_nnz = 0;
   for (int i = 0; i < local_count; ++i) {
@@ -119,15 +165,14 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
 
   std::vector<int> recv_counts(size, 0);
   std::vector<int> displs_cols(size, 0);
+  std::vector<int> all_nnz_per_col;
+
   if (rank == 0) {
     for (int i = 0; i < size; ++i) {
       recv_counts[i] = cols_per_rank + (i < remainder ? 1 : 0);
-      displs_cols[i] = i * cols_per_rank + std::min(i, remainder);
+      // Добавлены скобки
+      displs_cols[i] = (i * cols_per_rank) + std::min(i, remainder);
     }
-  }
-
-  std::vector<int> all_nnz_per_col;
-  if (rank == 0) {
     all_nnz_per_col.resize(matrix_b.cols);
   }
 
@@ -139,21 +184,8 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
   int total_global_nnz = 0;
 
   if (rank == 0) {
-    for (int i = 0; i < size; ++i) {
-      int start = displs_cols[i];
-      int count = recv_counts[i];
-      int nnz_sum = 0;
-      for (int j = 0; j < count; ++j) {
-        nnz_sum += all_nnz_per_col[start + j];
-      }
-      recv_nnz_counts[i] = nnz_sum;
-      if (i > 0) {
-        displs_nnz[i] = displs_nnz[i - 1] + recv_nnz_counts[i - 1];
-      }
-    }
-    if (size > 0) {
-      total_global_nnz = displs_nnz.back() + recv_nnz_counts.back();
-    }
+    PrepareGatherDisplacements(size, cols_per_rank, remainder, all_nnz_per_col, recv_counts, displs_cols,
+                               recv_nnz_counts, displs_nnz, total_global_nnz);
   }
 
   std::vector<int> all_rows;
@@ -175,23 +207,8 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
   MPI_Gatherv(local_vals_imag.data(), total_local_nnz, MPI_DOUBLE, all_vals_imag.data(), recv_nnz_counts.data(),
               displs_nnz.data(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  // итоговая склейка матрицы на нулевом ранге
   if (rank == 0) {
-    matrix_c.row_ind.clear();
-    matrix_c.values.clear();
-    matrix_c.col_ptr.clear();
-    matrix_c.col_ptr.push_back(0);
-
-    int current_nnz = 0;
-    for (int i = 0; i < matrix_b.cols; ++i) {
-      int nnz = all_nnz_per_col[i];
-      for (int k = 0; k < nnz; ++k) {
-        matrix_c.row_ind.push_back(all_rows[current_nnz + k]);
-        matrix_c.values.emplace_back(all_vals_real[current_nnz + k], all_vals_imag[current_nnz + k]);
-      }
-      current_nnz += nnz;
-      matrix_c.col_ptr.push_back(static_cast<int>(matrix_c.row_ind.size()));
-    }
+    AssembleFinalMatrix(all_nnz_per_col, all_rows, all_vals_real, all_vals_imag, matrix_b.cols, matrix_c);
   }
 
   return true;
