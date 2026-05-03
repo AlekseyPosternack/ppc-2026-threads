@@ -79,7 +79,6 @@ bool ShkrebkoMCalcOfIntegralRectSTL::RunImpl() {
   const std::size_t dim = local_input_.limits.size();
   const auto &limits = local_input_.limits;
   const auto &n_steps = local_input_.n_steps;
-  const auto &func = local_input_.func;
 
   std::vector<double> h(dim);
   double cell_volume = 1.0;
