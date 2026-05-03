@@ -6,11 +6,11 @@
 #include <string>
 #include <tuple>
 
+#include "smyshlaev_a_sle_cg_seq/all/include/ops_all.hpp"
 #include "smyshlaev_a_sle_cg_seq/common/include/common.hpp"
 #include "smyshlaev_a_sle_cg_seq/omp/include/ops_omp.hpp"
 #include "smyshlaev_a_sle_cg_seq/seq/include/ops_seq.hpp"
 #include "smyshlaev_a_sle_cg_seq/stl/include/ops_stl.hpp"
-#include "smyshlaev_a_sle_cg_seq/all/include/ops_all.hpp"
 #include "smyshlaev_a_sle_cg_seq/tbb/include/ops_tbb.hpp"
 #include "util/include/func_test_util.hpp"
 #include "util/include/util.hpp"
