@@ -19,7 +19,6 @@ struct SparseColumn {
   std::vector<std::complex<double>> vals;
 };
 
-// Анонимное пространство имен с функциями-хелперами для снижения Cognitive Complexity
 namespace {
 
 void ComputeColumnTask(int col_idx, const MatrixCCS &matrix_a, const MatrixCCS &matrix_b,
@@ -43,7 +42,6 @@ void ComputeColumnTask(int col_idx, const MatrixCCS &matrix_a, const MatrixCCS &
   }
 }
 
-// Хелпер для подготовки смещений (снижает сложность RunImpl)
 void PrepareGatherDisplacements(int size, int cols_per_rank, int remainder, const std::vector<int> &all_nnz_per_col,
                                 std::vector<int> &recv_counts, std::vector<int> &displs_cols,
                                 std::vector<int> &recv_nnz_counts, std::vector<int> &displs_nnz,
@@ -67,7 +65,6 @@ void PrepareGatherDisplacements(int size, int cols_per_rank, int remainder, cons
   }
 }
 
-// Хелпер для сборки финальной матрицы (снижает сложность RunImpl)
 void AssembleFinalMatrix(const std::vector<int> &all_nnz_per_col, const std::vector<int> &all_rows,
                          const std::vector<double> &all_vals_real, const std::vector<double> &all_vals_imag, int cols,
                          MatrixCCS &matrix_c) {
@@ -127,7 +124,6 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
   int cols_per_rank = matrix_b.cols / size;
   int remainder = matrix_b.cols % size;
 
-  // Добавлены скобки для явного указания приоритета
   int local_start = (rank * cols_per_rank) + std::min(rank, remainder);
   int local_count = cols_per_rank + (rank < remainder ? 1 : 0);
 
@@ -170,7 +166,6 @@ bool ShvetsovaKMultMatrixComplexALL::RunImpl() {
   if (rank == 0) {
     for (int i = 0; i < size; ++i) {
       recv_counts[i] = cols_per_rank + (i < remainder ? 1 : 0);
-      // Добавлены скобки
       displs_cols[i] = (i * cols_per_rank) + std::min(i, remainder);
     }
     all_nnz_per_col.resize(matrix_b.cols);
