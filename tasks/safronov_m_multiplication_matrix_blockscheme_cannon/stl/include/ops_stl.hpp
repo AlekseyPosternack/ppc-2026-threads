@@ -31,6 +31,22 @@ class SafronovMMultiplicationMatrixBlockSchemeCannonSTL : public BaseTask {
                               int size_block, int columns_blocks);
   static void FillingResultingMatrix(std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_blocks_c,
                                      std::vector<std::vector<double>> &matrix_c, int size_block, int columns_blocks);
+  static void ShiftALeftTask(int start, int end, int columns,
+                             std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_a);
+  static void ShiftBUpTask(int start, int end, int columns,
+                           std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_b);
+  static void CannonTask(int start, int end, int columns_blocks, int size_block,
+                         std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_a,
+                         std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_b,
+                         std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_c);
+  static void FillingTask(int start, int end, int columns_blocks, int size_block,
+                          const std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_blocks_c,
+                          std::vector<std::vector<double>> &matrix_c);
+  static void FillBlocks(int start, int end, int columns_blocks, int size_block,
+                         const std::vector<std::vector<double>> &matrix_a,
+                         const std::vector<std::vector<double>> &matrix_b,
+                         std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_blocks_a,
+                         std::vector<std::vector<std::vector<std::vector<double>>>> &matrix_blocks_b);
 };
 
 }  // namespace safronov_m_multiplication_matrix_blocksscheme_cannon
