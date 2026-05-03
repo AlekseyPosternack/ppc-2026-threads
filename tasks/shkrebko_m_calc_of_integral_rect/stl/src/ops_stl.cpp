@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <functional>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "shkrebko_m_calc_of_integral_rect/common/include/common.hpp"
@@ -42,6 +42,8 @@ bool ShkrebkoMCalcOfIntegralRectSTL::PreProcessingImpl() {
   return true;
 }
 
+namespace {
+
 struct ChunkData {
   std::size_t start;
   std::size_t end;
@@ -50,7 +52,7 @@ struct ChunkData {
   double *output;
 };
 
-static void ComputeChunkSum(ChunkData data) {
+void ComputeChunkSum(ChunkData data) {
   const std::size_t dim = data.input->limits.size();
   const auto &limits = data.input->limits;
   const auto &n_steps = data.input->n_steps;
@@ -68,12 +70,14 @@ static void ComputeChunkSum(ChunkData data) {
     for (int i = static_cast<int>(dim) - 1; i >= 0; --i) {
       std::size_t coord_index = tmp % static_cast<std::size_t>(n_steps[i]);
       tmp /= static_cast<std::size_t>(n_steps[i]);
-      point[i] = limits[i].first + (static_cast<double>(coord_index) + 0.5) * h[i];
+      point[i] = limits[i].first + ((static_cast<double>(coord_index) + 0.5) * h[i]);
     }
     local_sum += func(point);
   }
   *data.output = local_sum;
 }
+
+}  // namespace
 
 bool ShkrebkoMCalcOfIntegralRectSTL::RunImpl() {
   const std::size_t dim = local_input_.limits.size();
@@ -102,13 +106,13 @@ bool ShkrebkoMCalcOfIntegralRectSTL::RunImpl() {
 
   std::size_t start = 0;
   for (int i = 0; i < thread_count; ++i) {
-    std::size_t extra = (static_cast<std::size_t>(i) < remainder) ? 1 : 0;
+    std::size_t extra = std::cmp_less(static_cast<std::size_t>(i), remainder) ? 1 : 0;
     std::size_t end = start + chunk + extra;
     if (start >= end) {
       partial_sums[i] = 0.0;
       continue;
     }
-    ChunkData data{start, end, &h, &local_input_, &partial_sums[i]};
+    ChunkData data = {.start = start, .end = end, .h = &h, .input = &local_input_, .output = &partial_sums[i]};
     threads.emplace_back(ComputeChunkSum, data);
     start = end;
   }
