@@ -26,5 +26,5 @@ class ShkrebkoMCalcOfIntegralRectSTL : public BaseTask {
   InType local_input_;
   double res_ = 0.0;
 };
-  
+
 }  // namespace shkrebko_m_calc_of_integral_rect

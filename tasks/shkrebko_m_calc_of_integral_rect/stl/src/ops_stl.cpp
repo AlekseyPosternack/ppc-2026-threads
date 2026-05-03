@@ -29,8 +29,7 @@ bool ShkrebkoMCalcOfIntegralRectSTL::ValidationImpl() {
   if (!std::ranges::all_of(input.n_steps, [](int n) { return n > 0; })) {
     return false;
   }
-  if (!std::ranges::all_of(input.limits,
-                           [](const auto &lim) { return lim.first < lim.second; })) {
+  if (!std::ranges::all_of(input.limits, [](const auto &lim) { return lim.first < lim.second; })) {
     return false;
   }
   return true;
@@ -63,30 +62,25 @@ bool ShkrebkoMCalcOfIntegralRectSTL::RunImpl() {
   std::vector<std::size_t> indices(total_points);
   std::iota(indices.begin(), indices.end(), 0);
 
-  double total_sum = std::transform_reduce(
-      std::execution::par,
-      indices.begin(),
-      indices.end(),
-      0.0,
-      std::plus<>(),
-      [&](std::size_t idx) -> double {
-        thread_local std::vector<double> point;
-        thread_local std::size_t prev_dim = 0;
+  double total_sum = std::transform_reduce(std::execution::par, indices.begin(), indices.end(), 0.0, std::plus<>(),
+                                           [&](std::size_t idx) -> double {
+    thread_local std::vector<double> point;
+    thread_local std::size_t prev_dim = 0;
 
-        if (point.size() != dim) {
-          point.resize(dim);
-          prev_dim = dim;
-        }
+    if (point.size() != dim) {
+      point.resize(dim);
+      prev_dim = dim;
+    }
 
-        std::size_t tmp = idx;
-        for (int i = static_cast<int>(dim) - 1; i >= 0; --i) {
-          std::size_t coord_index = tmp % static_cast<std::size_t>(n_steps[i]);
-          tmp /= static_cast<std::size_t>(n_steps[i]);
-          point[i] = limits[i].first + (static_cast<double>(coord_index) + 0.5) * h[i];
-        }
+    std::size_t tmp = idx;
+    for (int i = static_cast<int>(dim) - 1; i >= 0; --i) {
+      std::size_t coord_index = tmp % static_cast<std::size_t>(n_steps[i]);
+      tmp /= static_cast<std::size_t>(n_steps[i]);
+      point[i] = limits[i].first + (static_cast<double>(coord_index) + 0.5) * h[i];
+    }
 
-        return func(point);
-      });
+    return func(point);
+  });
 
   res_ = total_sum * cell_volume;
   return true;
