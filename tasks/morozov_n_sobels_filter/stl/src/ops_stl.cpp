@@ -37,7 +37,8 @@ bool MorozovNSobelsFilterSTL::RunImpl() {
   const Image &input = GetInput();
 
   const int k_num_threads = ppc::util::GetNumThreads();
-  std::vector<std::thread> threads(k_num_threads);
+  std::vector<std::thread> threads;
+  threads.reserve((k_num_threads));
 
   size_t start_row = 1;
   size_t end_row = input.height - 1;
@@ -50,11 +51,9 @@ bool MorozovNSobelsFilterSTL::RunImpl() {
 
   for (int i = 0; i < k_num_threads; i++) {
     size_t num_rows = rows_per_thread + (std::cmp_less(i, remaining_rows) ? 1 : 0);
-    ;
 
     if (num_rows > 0) {
-      threads[i] =
-          std::thread([this, &input, current_start, num_rows]() { this->Filter(input, current_start, num_rows); });
+      threads.emplace_back([this, &input, current_start, num_rows]() { this->Filter(input, current_start, num_rows); });
     }
 
     current_start += num_rows;
