@@ -82,6 +82,76 @@ void ComputeAndWriteRow(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
   }
 }
 
+bool HandleEmptyInput(posternak_a_crs_mul_complex_matrix::CRSMatrix &res) {
+  res.values.clear();
+  res.index_col.clear();
+  res.index_row.assign(res.rows + 1, 0);
+  return true;
+}
+
+std::vector<size_t> CountNonZeroElementsParallel(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
+                                                 const posternak_a_crs_mul_complex_matrix::CRSMatrix &b, int total_rows,
+                                                 double threshold) {
+  std::vector<size_t> no_zero_rows(total_rows);
+  unsigned int num_threads = std::thread::hardware_concurrency();
+  const int chunk_size = std::max(1, (total_rows + static_cast<int>(num_threads) - 1) / static_cast<int>(num_threads));
+
+  std::vector<std::thread> threads;
+  threads.reserve(num_threads);
+
+  for (unsigned int t = 0; t < num_threads; ++t) {
+    const int start_row = t * chunk_size;
+    const int end_row = std::min(start_row + chunk_size, total_rows);
+    if (start_row >= total_rows) {
+      break;
+    }
+
+    threads.emplace_back([&, start_row, end_row]() {
+      for (int row = start_row; row < end_row; ++row) {
+        no_zero_rows[row] = ComputeRowNoZeroCount(a, b, row, threshold);
+      }
+    });
+  }
+
+  for (auto &thread : threads) {
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+
+  return no_zero_rows;
+}
+
+void ComputeResultValuesParallel(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
+                                 const posternak_a_crs_mul_complex_matrix::CRSMatrix &b,
+                                 posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int total_rows, double threshold) {
+  unsigned int num_threads = std::thread::hardware_concurrency();
+  const int chunk_size = std::max(1, (total_rows + static_cast<int>(num_threads) - 1) / static_cast<int>(num_threads));
+
+  std::vector<std::thread> threads;
+  threads.reserve(num_threads);
+
+  for (unsigned int t = 0; t < num_threads; ++t) {
+    const int start_row = t * chunk_size;
+    const int end_row = std::min(start_row + chunk_size, total_rows);
+    if (start_row >= total_rows) {
+      break;
+    }
+
+    threads.emplace_back([&, start_row, end_row]() {
+      for (int row = start_row; row < end_row; ++row) {
+        ComputeAndWriteRow(a, b, res, row, threshold);
+      }
+    });
+  }
+
+  for (auto &thread : threads) {
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+}
+
 }  // namespace
 
 namespace posternak_a_crs_mul_complex_matrix {
@@ -117,66 +187,18 @@ bool PosternakACRSMulComplexMatrixSTL::RunImpl() {
   auto &res = GetOutput();
 
   if (a.values.empty() || b.values.empty()) {
-    res.values.clear();
-    res.index_col.clear();
-    res.index_row.assign(res.rows + 1, 0);
-    return true;
+    return HandleEmptyInput(res);
   }
 
   constexpr double kThreshold = 1e-12;
-  std::vector<size_t> no_zero_rows(res.rows);
+  res.rows = a.rows;
+  res.cols = b.cols;
 
-  unsigned int num_threads = std::thread::hardware_concurrency();
-  const int total_rows = res.rows;
-  const int chunk_size = std::max(1, (total_rows + static_cast<int>(num_threads) - 1) / static_cast<int>(num_threads));
-
-  std::vector<std::thread> threads;
-  threads.reserve(num_threads);
-
-  for (unsigned int t = 0; t < num_threads; ++t) {
-    const int start_row = t * chunk_size;
-    const int end_row = std::min(start_row + chunk_size, total_rows);
-    if (start_row >= total_rows) {
-      break;
-    }
-
-    threads.emplace_back([&, start_row, end_row]() {
-      for (int row = start_row; row < end_row; ++row) {
-        no_zero_rows[row] = ComputeRowNoZeroCount(a, b, row, kThreshold);
-      }
-    });
-  }
-
-  for (auto &thread : threads) {
-    if (thread.joinable()) {
-      thread.join();
-    }
-  }
+  std::vector<size_t> no_zero_rows = CountNonZeroElementsParallel(a, b, res.rows, kThreshold);
 
   BuildResultStructure(res, no_zero_rows);
 
-  threads.clear();
-  threads.reserve(num_threads);
-
-  for (unsigned int t = 0; t < num_threads; ++t) {
-    const int start_row = t * chunk_size;
-    const int end_row = std::min(start_row + chunk_size, total_rows);
-    if (start_row >= total_rows) {
-      break;
-    }
-
-    threads.emplace_back([&, start_row, end_row]() {
-      for (int row = start_row; row < end_row; ++row) {
-        ComputeAndWriteRow(a, b, res, row, kThreshold);
-      }
-    });
-  }
-
-  for (auto &thread : threads) {
-    if (thread.joinable()) {
-      thread.join();
-    }
-  }
+  ComputeResultValuesParallel(a, b, res, res.rows, kThreshold);
 
   return res.IsValid();
 }
