@@ -109,7 +109,7 @@ void SmyshlaevASleCgTaskALL::ComputeApAll(const std::vector<double> &p, std::vec
 
 double SmyshlaevASleCgTaskALL::UpdateSolutionAndResidual(std::vector<double> &x, std::vector<double> &r,
                                                          const std::vector<double> &p, const std::vector<double> &ap,
-                                                         double alpha, int start, int end, bool is_mpi) const {
+                                                         double alpha, int start, int end, bool is_mpi) {
   double local_rs_new = 0.0;
 #pragma omp parallel for default(none) shared(start, end, x, p, r, ap, alpha) reduction(+ : local_rs_new)
   for (int i = start; i < end; ++i) {

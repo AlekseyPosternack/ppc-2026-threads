@@ -30,8 +30,8 @@ class SmyshlaevASleCgTaskALL : public BaseTask {
 
   void ComputeApAll(const std::vector<double> &p, std::vector<double> &ap, int start, int end) const;
 
-  double UpdateSolutionAndResidual(std::vector<double> &x, std::vector<double> &r, const std::vector<double> &p,
-                                   const std::vector<double> &ap, double alpha, int start, int end, bool is_mpi) const;
+  static double UpdateSolutionAndResidual(std::vector<double> &x, std::vector<double> &r, const std::vector<double> &p,
+                                          const std::vector<double> &ap, double alpha, int start, int end, bool is_mpi);
 
   void SyncVectorP(std::vector<double> &p, int size, bool is_mpi) const;
 
