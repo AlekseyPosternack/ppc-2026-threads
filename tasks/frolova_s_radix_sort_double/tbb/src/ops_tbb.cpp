@@ -1,9 +1,9 @@
 #include "frolova_s_radix_sort_double/tbb/include/ops_tbb.hpp"
 
 #include <oneapi/tbb/parallel_for.h>
-#include <oneapi/tbb/task_arena.h>
 
 #include <algorithm>
+#include <atomic>
 #include <bit>
 #include <cstdint>
 #include <vector>
@@ -35,52 +35,31 @@ bool FrolovaSRadixSortDoubleTBB::RunImpl() {
   const std::size_t n = working.size();
 
   constexpr int kRadix = 256;
-  constexpr int kBits = 8;
-  constexpr int kPasses = sizeof(std::uint64_t);
+  constexpr int kNumBits = 8;
+  constexpr int kNumPasses = sizeof(std::uint64_t);
 
   std::vector<double> temp(n);
 
-  const std::size_t num_threads = tbb::this_task_arena::max_concurrency();
-  const std::size_t grain_size = std::max(std::size_t(256), n / (num_threads * 8));
-  const std::size_t num_blocks = (n + grain_size - 1) / grain_size;
-  std::vector<std::size_t> block_starts(num_blocks + 1);
-  for (std::size_t i = 0; i < num_blocks; ++i) {
-    block_starts[i] = i * grain_size;
-  }
-  block_starts[num_blocks] = n;
-
-  for (int pass = 0; pass < kPasses; ++pass) {
-    std::vector<std::array<std::size_t, kRadix>> block_counts(num_blocks, std::array<std::size_t, kRadix>{});
-
-    tbb::parallel_for(std::size_t(0), num_blocks, [&](std::size_t block) {
-      std::size_t start = block_starts[block];
-      std::size_t end = block_starts[block + 1];
-      for (std::size_t i = start; i < end; ++i) {
-        auto bits = std::bit_cast<std::uint64_t>(working[i]);
-        int byte = static_cast<int>((bits >> (pass * kBits)) & 0xFF);
-        ++block_counts[block][byte];
-      }
+  for (int pass = 0; pass < kNumPasses; ++pass) {
+    std::array<std::atomic<int>, kRadix> count{};
+    tbb::parallel_for(std::size_t(0), n, [&](std::size_t i) {
+      auto bits = std::bit_cast<std::uint64_t>(working[i]);
+      int byte = static_cast<int>((bits >> (pass * kNumBits)) & 0xFF);
+      count[byte].fetch_add(1, std::memory_order_relaxed);
     });
 
-    std::vector<std::array<std::size_t, kRadix>> block_offsets(num_blocks);
-    std::array<std::size_t, kRadix> current_offset{};
-    for (std::size_t block = 0; block < num_blocks; ++block) {
-      for (int byte = 0; byte < kRadix; ++byte) {
-        block_offsets[block][byte] = current_offset[byte];
-        current_offset[byte] += block_counts[block][byte];
-      }
+    int offset[kRadix];
+    int total = 0;
+    for (int i = 0; i < kRadix; ++i) {
+      offset[i] = total;
+      total += count[i].load();
     }
 
-    tbb::parallel_for(std::size_t(0), num_blocks, [&](std::size_t block) {
-      std::array<std::size_t, kRadix> local_pos = block_offsets[block];
-      std::size_t start = block_starts[block];
-      std::size_t end = block_starts[block + 1];
-      for (std::size_t i = start; i < end; ++i) {
-        auto bits = std::bit_cast<std::uint64_t>(working[i]);
-        int byte = static_cast<int>((bits >> (pass * kBits)) & 0xFF);
-        temp[local_pos[byte]++] = working[i];
-      }
-    });
+    for (double val : working) {
+      auto bits = std::bit_cast<std::uint64_t>(val);
+      int byte = static_cast<int>((bits >> (pass * kNumBits)) & 0xFF);
+      temp[offset[byte]++] = val;
+    }
 
     working.swap(temp);
   }
@@ -97,7 +76,7 @@ bool FrolovaSRadixSortDoubleTBB::RunImpl() {
       positive.push_back(val);
     }
   }
-  std::reverse(negative.begin(), negative.end());
+  std::ranges::reverse(negative);
 
   working.clear();
   working.insert(working.end(), negative.begin(), negative.end());
