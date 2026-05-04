@@ -92,7 +92,8 @@ double SmyshlaevASleCgTaskALL::ComputeDotProductAll(const std::vector<double> &v
   return global_sum;
 }
 
-void SmyshlaevASleCgTaskALL::ComputeApAll(const std::vector<double> &p, std::vector<double> &ap, int start, int end) {
+void SmyshlaevASleCgTaskALL::ComputeApAll(const std::vector<double> &p, std::vector<double> &ap, int start,
+                                          int end) const {
   const auto &m = flat_A_;
   const int l_n = n_;
 
