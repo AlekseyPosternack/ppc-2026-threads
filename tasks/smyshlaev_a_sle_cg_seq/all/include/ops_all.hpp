@@ -24,10 +24,17 @@ class SmyshlaevASleCgTaskALL : public BaseTask {
   bool PostProcessingImpl() override;
 
   void DistributeInitialData(int rank, bool is_mpi, std::vector<double> &b);
-  double ComputeDotProductAll(const std::vector<double> &v1, const std::vector<double> &v2, int start, int end,
-                              bool is_mpi);
-  void ComputeApAll(const std::vector<double> &p, std::vector<double> &ap, int start, int end);
-  void SyncVectorP(std::vector<double> &p, int size, bool is_mpi);
+
+  static double ComputeDotProductAll(const std::vector<double> &v1, const std::vector<double> &v2, int start, int end,
+                                     bool is_mpi);
+
+  void ComputeApAll(const std::vector<double> &p, std::vector<double> &ap, int start, int end) const;
+
+  double UpdateSolutionAndResidual(std::vector<double> &x, std::vector<double> &r, const std::vector<double> &p,
+                                   const std::vector<double> &ap, double alpha, int start, int end, bool is_mpi) const;
+
+  void SyncVectorP(std::vector<double> &p, int size, bool is_mpi) const;
+
   void FinalGather(std::vector<double> &x, int start, int count, int size, bool is_mpi);
 };
 

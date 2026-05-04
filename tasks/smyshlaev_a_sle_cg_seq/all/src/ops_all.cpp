@@ -5,7 +5,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <vector>
+
+#include "smyshlaev_a_sle_cg_seq/common/include/common.hpp"
+#include "util/include/util.hpp"
 
 namespace smyshlaev_a_sle_cg_seq {
 
@@ -102,7 +106,24 @@ void SmyshlaevASleCgTaskALL::ComputeApAll(const std::vector<double> &p, std::vec
   }
 }
 
-void SmyshlaevASleCgTaskALL::SyncVectorP(std::vector<double> &p, int size, bool is_mpi) {
+double SmyshlaevASleCgTaskALL::UpdateSolutionAndResidual(std::vector<double> &x, std::vector<double> &r,
+                                                         const std::vector<double> &p, const std::vector<double> &ap,
+                                                         double alpha, int start, int end, bool is_mpi) const {
+  double local_rs_new = 0.0;
+#pragma omp parallel for default(none) shared(start, end, x, p, r, ap, alpha) reduction(+ : local_rs_new)
+  for (int i = start; i < end; ++i) {
+    x[i] += alpha * p[i];
+    r[i] -= alpha * ap[i];
+    local_rs_new += r[i] * r[i];
+  }
+  double global_rs_new = local_rs_new;
+  if (is_mpi) {
+    MPI_Allreduce(&local_rs_new, &global_rs_new, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  }
+  return global_rs_new;
+}
+
+void SmyshlaevASleCgTaskALL::SyncVectorP(std::vector<double> &p, int size, bool is_mpi) const {
   if (!is_mpi || n_ <= 0) {
     return;
   }
@@ -151,9 +172,7 @@ bool SmyshlaevASleCgTaskALL::RunImpl() {
   if (rank == 0) {
     b_vec = GetInput().b;
   }
-
   DistributeInitialData(rank, is_mpi, b_vec);
-
   if (n_ == 0) {
     return true;
   }
@@ -183,35 +202,19 @@ bool SmyshlaevASleCgTaskALL::RunImpl() {
       break;
     }
 
-    double alpha = rs_old / p_ap;
-    double rs_new_local = 0.0;
-#pragma omp parallel for default(none) shared(start, end, x, p, r, ap, alpha) reduction(+ : rs_new_local)
-    for (int i = start; i < end; ++i) {
-      x[i] += alpha * p[i];
-      r[i] -= alpha * ap[i];
-      rs_new_local += r[i] * r[i];
-    }
-
-    double rs_new = 0.0;
-    if (is_mpi) {
-      MPI_Allreduce(&rs_new_local, &rs_new, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    } else {
-      rs_new = rs_new_local;
-    }
-
+    double rs_new = UpdateSolutionAndResidual(x, r, p, ap, rs_old / p_ap, start, end, is_mpi);
     if (rs_new < eps_sq) {
       break;
     }
+
     double beta = rs_new / rs_old;
 #pragma omp parallel for default(none) shared(start, end, p, r, beta)
     for (int i = start; i < end; ++i) {
       p[i] = r[i] + (beta * p[i]);
     }
-
     SyncVectorP(p, size, is_mpi);
     rs_old = rs_new;
   }
-
   FinalGather(x, start, count, size, is_mpi);
   return true;
 }
