@@ -93,15 +93,20 @@ std::vector<size_t> CountNonZeroElementsParallel(const posternak_a_crs_mul_compl
                                                  const posternak_a_crs_mul_complex_matrix::CRSMatrix &b, int total_rows,
                                                  double threshold) {
   std::vector<size_t> no_zero_rows(total_rows);
-  int num_threads = std::thread::hardware_concurrency();
-  const int chunk_size = std::max(1, (total_rows + static_cast<int>(num_threads) - 1) / static_cast<int>(num_threads));
+  unsigned int num_threads = std::thread::hardware_concurrency();
+  if (num_threads == 0) {
+    num_threads = 1;
+  }
+
+  const unsigned int chunk_size = std::max(1u, (static_cast<unsigned int>(total_rows) + num_threads - 1) / num_threads);
 
   std::vector<std::thread> threads;
   threads.reserve(num_threads);
 
-  for (int thr = 0; thr < num_threads; ++thr) {
-    const int start_row = thr * chunk_size;
-    const int end_row = std::min(start_row + chunk_size, total_rows);
+  for (unsigned int thr = 0; thr < num_threads; ++thr) {
+    const int start_row = static_cast<int>(thr * chunk_size);
+    const int end_row = static_cast<int>(
+        std::min(static_cast<unsigned int>(start_row) + chunk_size, static_cast<unsigned int>(total_rows)));
     if (start_row >= total_rows) {
       break;
     }
@@ -125,15 +130,20 @@ std::vector<size_t> CountNonZeroElementsParallel(const posternak_a_crs_mul_compl
 void ComputeResultValuesParallel(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
                                  const posternak_a_crs_mul_complex_matrix::CRSMatrix &b,
                                  posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int total_rows, double threshold) {
-  int num_threads = std::thread::hardware_concurrency();
-  const int chunk_size = std::max(1, (total_rows + static_cast<int>(num_threads) - 1) / static_cast<int>(num_threads));
+  unsigned int num_threads = std::thread::hardware_concurrency();
+  if (num_threads == 0) {
+    num_threads = 1;
+  }
+
+  const unsigned int chunk_size = std::max(1u, (static_cast<unsigned int>(total_rows) + num_threads - 1) / num_threads);
 
   std::vector<std::thread> threads;
   threads.reserve(num_threads);
 
-  for (int thr = 0; thr < num_threads; ++thr) {
-    const int start_row = thr * chunk_size;
-    const int end_row = std::min(start_row + chunk_size, total_rows);
+  for (unsigned int thr = 0; thr < num_threads; ++thr) {
+    const int start_row = static_cast<int>(thr * chunk_size);
+    const int end_row = static_cast<int>(
+        std::min(static_cast<unsigned int>(start_row) + chunk_size, static_cast<unsigned int>(total_rows)));
     if (start_row >= total_rows) {
       break;
     }
