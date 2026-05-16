@@ -70,6 +70,7 @@ void ComputeAndWriteRow(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
   }
 
   std::vector<std::pair<int, std::complex<double>>> sorted(row_sum.begin(), row_sum.end());
+
   std::ranges::sort(sorted, [](const auto &p1, const auto &p2) { return p1.first < p2.first; });
 
   size_t pos = res.index_row[row];
@@ -82,58 +83,30 @@ void ComputeAndWriteRow(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
   }
 }
 
-struct RowDistribution {
-  int local_start;
-  int local_end;
-  int local_count;
-  int rows_per_proc;
-  int rem;
-};
-
-RowDistribution CalculateRowDistribution(int total_rows, int rank, int size) {
-  int rows_per_proc = total_rows / size;
-  int rem = total_rows % size;
-  int local_start = rank * rows_per_proc + std::min(rank, rem);
-  int local_end = local_start + rows_per_proc + (rank < rem ? 1 : 0);
-  return {local_start, local_end, local_end - local_start, rows_per_proc, rem};
-}
-
-std::vector<size_t> ComputeLocalRowCounts(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
-                                          const posternak_a_crs_mul_complex_matrix::CRSMatrix &b, int local_start,
-                                          int local_count, double threshold) {
-  std::vector<size_t> local_counts(local_count);
+void ComputeLocalCounts(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
+                        const posternak_a_crs_mul_complex_matrix::CRSMatrix &b, std::vector<size_t> &local_counts,
+                        int local_start, int local_count, double threshold) {
 #pragma omp parallel for schedule(dynamic)
   for (int i = 0; i < local_count; ++i) {
     local_counts[i] = ComputeRowNoZeroCount(a, b, local_start + i, threshold);
   }
-  return local_counts;
 }
 
-std::vector<size_t> GatherRowCountsToRoot(const std::vector<size_t> &local_counts, const RowDistribution &dist,
-                                          int total_rows, int rank, int size) {
-  std::vector<int> recv_counts(size), displs(size);
-  for (int p = 0; p < size; ++p) {
-    int p_start = p * dist.rows_per_proc + std::min(p, dist.rem);
-    int p_end = p_start + dist.rows_per_proc + (p < dist.rem ? 1 : 0);
-    recv_counts[p] = p_end - p_start;
-    displs[p] = p_start;
-  }
-
-  std::vector<size_t> global_counts(total_rows);
+void GatherCountsToRoot(const std::vector<size_t> &local_counts, int local_count, std::vector<size_t> &global_counts,
+                        const std::vector<int> &recv_counts, const std::vector<int> &displs, int rank) {
   if (rank == 0) {
-    MPI_Gatherv(local_counts.data(), static_cast<int>(local_counts.size()), MPI_UNSIGNED_LONG, global_counts.data(),
-                recv_counts.data(), displs.data(), MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(local_counts.data(), local_count, MPI_UNSIGNED_LONG, global_counts.data(), recv_counts.data(),
+                displs.data(), MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
   } else {
-    MPI_Gatherv(local_counts.data(), static_cast<int>(local_counts.size()), MPI_UNSIGNED_LONG, nullptr, nullptr,
-                nullptr, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(local_counts.data(), local_count, MPI_UNSIGNED_LONG, nullptr, nullptr, nullptr, MPI_UNSIGNED_LONG, 0,
+                MPI_COMM_WORLD);
   }
-  return global_counts;
 }
 
-void BroadcastResultStructure(posternak_a_crs_mul_complex_matrix::CRSMatrix &res, std::vector<size_t> &global_counts,
-                              int rank) {
+void BuildAndBroadcastStructure(posternak_a_crs_mul_complex_matrix::CRSMatrix &res,
+                                std::vector<size_t> &global_counts_copy, int rank) {
   if (rank == 0) {
-    BuildResultStructure(res, global_counts);
+    BuildResultStructure(res, global_counts_copy);
   }
   res.index_row.resize(res.rows + 1);
   MPI_Bcast(res.index_row.data(), static_cast<int>(res.index_row.size()), MPI_INT, 0, MPI_COMM_WORLD);
@@ -149,37 +122,27 @@ void ComputeLocalRows(const posternak_a_crs_mul_complex_matrix::CRSMatrix &a,
   }
 }
 
-struct GatherParams {
-  std::vector<int> counts;
-  std::vector<int> displs;
-};
-
-GatherParams PrepareGatherParams(const posternak_a_crs_mul_complex_matrix::CRSMatrix &res, const RowDistribution &dist,
-                                 int size) {
-  std::vector<int> g_counts(size), g_displs(size);
+void PrepareGatherParams(std::vector<int> &g_counts, std::vector<int> &g_displs,
+                         const posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int rows_per_proc, int rem,
+                         int size) {
   for (int p = 0; p < size; ++p) {
-    int p_start = p * dist.rows_per_proc + std::min(p, dist.rem);
-    int p_end = p_start + dist.rows_per_proc + (p < dist.rem ? 1 : 0);
+    int p_start = p * rows_per_proc + std::min(p, rem);
+    int p_end = p_start + rows_per_proc + (p < rem ? 1 : 0);
     g_displs[p] = res.index_row[p_start];
     g_counts[p] = res.index_row[p_end] - res.index_row[p_start];
   }
-  return {std::move(g_counts), std::move(g_displs)};
 }
 
-void GatherResultData(const posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int local_start, int local_end,
-                      const GatherParams &params, int rank, int size) {
-  int local_nnz = res.index_row[local_end] - res.index_row[local_start];
-
+void GatherResultData(posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int local_start, int local_nnz,
+                      const std::vector<int> &g_counts, const std::vector<int> &g_displs, int rank) {
   MPI_Gatherv(res.values.data() + res.index_row[local_start], local_nnz, MPI_C_DOUBLE_COMPLEX,
-              rank == 0 ? res.values.data() : nullptr, params.counts.data(), params.displs.data(), MPI_C_DOUBLE_COMPLEX,
-              0, MPI_COMM_WORLD);
-  MPI_Gatherv(res.index_col.data() + res.index_row[local_start], local_nnz, MPI_INT,
-              rank == 0 ? res.index_col.data() : nullptr, params.counts.data(), params.displs.data(), MPI_INT, 0,
+              rank == 0 ? res.values.data() : nullptr, g_counts.data(), g_displs.data(), MPI_C_DOUBLE_COMPLEX, 0,
               MPI_COMM_WORLD);
+  MPI_Gatherv(res.index_col.data() + res.index_row[local_start], local_nnz, MPI_INT,
+              rank == 0 ? res.index_col.data() : nullptr, g_counts.data(), g_displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 }
 
-void BroadcastResultData(posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int rank) {
-  int total_nnz = res.index_row.back();
+void BroadcastResult(posternak_a_crs_mul_complex_matrix::CRSMatrix &res, int total_nnz) {
   MPI_Bcast(res.values.data(), total_nnz, MPI_C_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD);
   MPI_Bcast(res.index_col.data(), total_nnz, MPI_INT, 0, MPI_COMM_WORLD);
 }
@@ -222,10 +185,7 @@ bool PosternakACRSMulComplexMatrixALL::RunImpl() {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  // Обработка пустых матриц
   if (a.values.empty() || b.values.empty()) {
-    res.rows = a.rows;
-    res.cols = b.cols;
     res.values.clear();
     res.index_col.clear();
     res.index_row.assign(res.rows + 1, 0);
@@ -234,24 +194,41 @@ bool PosternakACRSMulComplexMatrixALL::RunImpl() {
 
   constexpr double kThreshold = 1e-12;
 
-  // Распределение строк
-  auto dist = CalculateRowDistribution(res.rows, rank, size);
+  int rows_per_proc = res.rows / size;
+  int rem = res.rows % size;
+  int local_start = rank * rows_per_proc + std::min(rank, rem);
+  int local_end = local_start + rows_per_proc + (rank < rem ? 1 : 0);
+  int local_count = local_end - local_start;
 
-  // подсчет количества ненулевых элементов для локальных строк
-  auto local_counts = ComputeLocalRowCounts(a, b, dist.local_start, dist.local_count, kThreshold);
+  std::vector<size_t> local_counts(local_count), global_counts(res.rows);
+  ComputeLocalCounts(a, b, local_counts, local_start, local_count, kThreshold);
 
-  // структура результата
-  auto global_counts = GatherRowCountsToRoot(local_counts, dist, res.rows, rank, size);
-  BroadcastResultStructure(res, global_counts, rank);
+  std::vector<int> recv_counts(size), displs(size);
+  for (int p = 0; p < size; ++p) {
+    int p_start = p * rows_per_proc + std::min(p, rem);
+    int p_end = p_start + rows_per_proc + (p < rem ? 1 : 0);
+    recv_counts[p] = p_end - p_start;
+    displs[p] = p_start;
+  }
 
-  // вычисление значений для локальных строк
-  ComputeLocalRows(a, b, res, dist.local_start, dist.local_count, kThreshold);
+  GatherCountsToRoot(local_counts, local_count, global_counts, recv_counts, displs, rank);
 
-  // сбор данных
-  auto gather_params = PrepareGatherParams(res, dist, size);
-  GatherResultData(res, dist.local_start, dist.local_end, gather_params, rank, size);
+  std::vector<size_t> global_counts_copy = global_counts;
+  BuildAndBroadcastStructure(res, global_counts_copy, rank);
 
-  BroadcastResultData(res, rank);
+  int total_nnz = res.index_row.back();
+  res.values.resize(total_nnz);
+  res.index_col.resize(total_nnz);
+
+  ComputeLocalRows(a, b, res, local_start, local_count, kThreshold);
+
+  std::vector<int> g_counts(size), g_displs(size);
+  PrepareGatherParams(g_counts, g_displs, res, rows_per_proc, rem, size);
+
+  int local_nnz = res.index_row[local_end] - res.index_row[local_start];
+
+  GatherResultData(res, local_start, local_nnz, g_counts, g_displs, rank);
+  BroadcastResult(res, total_nnz);
 
   return res.IsValid();
 }
